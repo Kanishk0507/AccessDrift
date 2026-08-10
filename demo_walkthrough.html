@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Demo Walkthrough — Accessibility Monitor v2 · Kanishk Singh</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{ --purple:#6B5CE7; --teal:#0EA5A0; --amber:#E8920A; --coral:#E55A3C; --green:#22A06B; --text:#1A1A1A; --text-2:#555; --text-3:#888; }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'DM Sans',sans-serif;color:var(--text);background:#F7F6F3;padding:32px;line-height:1.6;}
+  .doc{max-width:840px;margin:0 auto;}
+  .kicker{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--purple);margin-bottom:8px;}
+  h1{font-family:'Syne',sans-serif;font-size:30px;font-weight:800;letter-spacing:-.02em;margin-bottom:6px;}
+  .sub{font-size:15px;color:var(--text-3);margin-bottom:28px;}
+  .meta-row{display:flex;gap:24px;flex-wrap:wrap;background:#fff;border:1.5px solid rgba(0,0,0,.1);border-radius:14px;padding:16px 20px;margin-bottom:28px;}
+  .meta-row .k{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);}
+  .meta-row .v{font-size:14px;font-weight:500;}
+  .step{background:#fff;border:1.5px solid rgba(0,0,0,.1);border-radius:16px;padding:22px 24px;margin-bottom:16px;page-break-inside:avoid;}
+  .step-head{display:flex;align-items:center;gap:14px;margin-bottom:12px;}
+  .step-num{width:34px;height:34px;border-radius:10px;background:var(--purple);color:#fff;font-family:'Syne',sans-serif;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .step-title{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;}
+  .step-time{margin-left:auto;font-size:12px;font-weight:700;color:var(--purple);background:#EEE9FF;padding:3px 10px;border-radius:20px;}
+  .say{background:#FAFAF8;border-left:4px solid var(--teal);border-radius:0 10px 10px 0;padding:12px 16px;margin:12px 0;font-size:14px;color:var(--text-2);}
+  .say b{color:var(--teal);font-family:'Syne',sans-serif;font-size:10px;letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:4px;}
+  .show{font-size:13px;color:var(--text-3);}
+  .show b{color:var(--amber);font-family:'Syne',sans-serif;font-size:10px;letter-spacing:.06em;text-transform:uppercase;}
+  ul{margin:8px 0 0 20px;font-size:13px;color:var(--text-2);}
+  li{margin-bottom:4px;}
+  .section-label{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-3);margin:28px 0 12px;}
+  .backup{background:#FDEAE5;border:1.5px solid rgba(229,90,60,.25);border-radius:14px;padding:18px 22px;}
+  .backup h3{font-family:'Syne',sans-serif;font-size:14px;color:var(--coral);margin-bottom:8px;}
+  .backup ul{color:#7a2e1c;}
+  .key{background:linear-gradient(135deg,#EEE9FF,#D4F7F5);border-radius:14px;padding:18px 22px;margin-bottom:16px;}
+  .key h3{font-family:'Syne',sans-serif;font-size:14px;color:var(--purple);margin-bottom:8px;}
+  .badge{display:inline-block;font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--purple);background:#EEE9FF;padding:5px 12px;border-radius:10px;margin-top:8px;}
+  @media print{ body{background:#fff;padding:0;} .step,.meta-row,.backup,.key{box-shadow:none;} }
+</style>
+</head>
+<body>
+<div class="doc">
+
+  <div class="kicker">INFO7375 · Assignment 4 · Demo Walkthrough</div>
+  <h1>Accessibility Monitor v2 — Live Demo Script</h1>
+  <div class="sub">A 4-minute walkthrough: from a manual trigger to a human-readable, AI-written audit report. Built with n8n + Claude claude-sonnet-4-6 + axe-core 4.10.</div>
+
+  <div class="meta-row">
+    <div><div class="k">Presenter</div><div class="v">Kanishk Singh</div></div>
+    <div><div class="k">Duration</div><div class="v">~4 minutes</div></div>
+    <div><div class="k">Format</div><div class="v">Screen recording / live click-through</div></div>
+    <div><div class="k">Demo domain</div><div class="v">example.com</div></div>
+  </div>
+
+  <div class="section-label">Walkthrough — 5 steps</div>
+
+  <div class="step">
+    <div class="step-head"><div class="step-num">1</div><div class="step-title">The problem, in one sentence</div><div class="step-time">0:00–0:30</div></div>
+    <div class="say"><b>Say</b>"Web teams discover accessibility regressions about 18 days late — usually when a user complains or a lawsuit lands. 96% of sites have WCAG failures. This workflow catches them weekly and, more importantly, tells a developer exactly how to fix each one in plain English."</div>
+    <div class="show"><b>Show</b> The Executive Summary frame of the Figma board (Part 4) — the problem/solution split and the four headline metrics ($0.026/domain, 11.8s, $78/mo vs Siteimprove's $500–$3,000/mo).</div>
+  </div>
+
+  <div class="step">
+    <div class="step-head"><div class="step-num">2</div><div class="step-title">Trigger the workflow in n8n</div><div class="step-time">0:30–1:15</div></div>
+    <div class="say"><b>Say</b>"Here's the v2 workflow — 14 nodes, up from 8 in Assignment 3. I'll hit the manual trigger; in production a Schedule Trigger runs it every Sunday at 2am. Watch the data flow left to right."</div>
+    <div class="show"><b>Show</b> Open <code>workflow_v2.json</code> in n8n → click <em>Test workflow</em>. Point at the three reference-data nodes loading in parallel (axe-core rules, WCAG criteria), then the Crawl + Audit node lighting up.</div>
+    <ul>
+      <li>Call out the <b>Set Scan Config</b> node — domain + scan IDs are centralized, so the same workflow runs against any site.</li>
+      <li>Call out that crawl + audit returns 8 violations across 5 pages.</li>
+    </ul>
+  </div>
+
+  <div class="step">
+    <div class="step-head"><div class="step-num">3</div><div class="step-title">The intelligence: diff → smart filter → Claude</div><div class="step-time">1:15–2:30</div></div>
+    <div class="say"><b>Say</b>"This is the part that makes it smart, not just an axe-core wrapper. The Diff Engine compares this scan to last week using a stable key — so it knows 7 are new, 1 is persisting, and 2 were resolved. Only the NEW critical and serious ones go to Claude — that's 5 calls, not 8 — which is the cost-control routing. Claude returns a structured fix for each: plain-English explanation, who's affected, the exact code change, and an effort estimate."</div>
+    <div class="show"><b>Show</b> Click the <b>Diff Engine</b> node output (7 new / 1 persisting / 2 resolved, score 62/100 vs 70). Then the <b>Claude AI</b> node — open one output item and read the JSON: the color-contrast fix returns the exact replacement color <code>#B5720A</code> and new ratio <code>5.2:1</code>.</div>
+    <ul>
+      <li>Emphasize: "It computes the replacement color and verifies the ratio — that's reasoning, not reformatting."</li>
+      <li>Point at the <b>Parse + Merge</b> node's try/catch — malformed JSON falls back to a rule-based suggestion instead of crashing.</li>
+    </ul>
+  </div>
+
+  <div class="step">
+    <div class="step-head"><div class="step-num">4</div><div class="step-title">The output a human actually uses</div><div class="step-time">2:30–3:30</div></div>
+    <div class="say"><b>Say</b>"The whole point of Assignment 4 — this isn't JSON, it's something a PM can read. Here's the generated HTML report: a compliance score, every violation as a card with the AI fix, and an executive summary that traces 4 of the 7 issues to a single PricingCard component. The same report goes out as a SendGrid email, and a CSV drops into Jira."</div>
+    <div class="show"><b>Show</b> Open <code>outputs/accessibility_report_example.com_2026-05-23.html</code> in a browser. Scroll the violation cards. Then open <code>outputs/email_digest_example.com_2026-05-23.html</code> and <code>outputs/compliance_trends_dashboard.html</code>.</div>
+  </div>
+
+  <div class="step">
+    <div class="step-head"><div class="step-num">5</div><div class="step-title">Scale + honest limits</div><div class="step-time">3:30–4:00</div></div>
+    <div class="say"><b>Say</b>"I stress-tested it across 50 domains in one reproducible run — 232 violations, 130 Claude calls after the smart filter, 50 reports rendered, zero fatal errors. Three network timeouts all auto-recovered via retry and backoff. It's projected to break near 100 domains — n8n's heap dies around 380 in-memory items — and the fix is a Split-in-Batches node. The whole path to 1,000 domains/day runs about $13.50/day. Anyone can rerun it with one command: node scale_test_50.js."</div>
+    <div class="show"><b>Show</b> The 50-domain dashboard (<code>outputs/screenshots/scale_test_50_dashboard.png</code>), the Scale Testing table (Part 3), and <code>outputs/pipeline_error_log.txt</code> showing the recovered timeouts.</div>
+  </div>
+
+  <div class="section-label">Key points to land</div>
+  <div class="key">
+    <h3>The three things to make sure they hear</h3>
+    <ul>
+      <li><b>Real intelligence, not an API call:</b> Claude computes specific replacement colors + contrast ratios and traces multiple violations to one root-cause component.</li>
+      <li><b>Cost-control by design:</b> the diff engine + smart filter mean we only pay for NEW critical/serious issues — 5 calls for 8 violations, and persisting issues are never re-billed.</li>
+      <li><b>Honest engineering:</b> I know exactly where it breaks (heap at ~380 items) and exactly how to fix it. That's a production mindset, not a demo.</li>
+    </ul>
+    <div class="badge">Built with n8n + Claude claude-sonnet-4-6 + axe-core 4.10</div>
+  </div>
+
+  <div class="section-label">Backup plan if the live demo fails</div>
+  <div class="backup">
+    <h3>If n8n won't run or the API is down</h3>
+    <ul>
+      <li><b>Pre-generated outputs:</b> the entire <code>outputs/</code> folder is committed — walk through those files directly instead of a live run.</li>
+      <li><b>Reproduce offline:</b> run <code>node generate_outputs.js</code> — it replays captured Claude responses and regenerates every report with no API key needed.</li>
+      <li><b>Screenshots:</b> the Output Gallery (Part 2) and architecture diagram (Part 4) on the Figma board cover every step visually.</li>
+      <li><b>Flagship artifact:</b> open <code>sample_output_audit_report.html</code> — the full hand-reviewed report — as the fallback "hero" output.</li>
+    </ul>
+  </div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,9 @@
+node_modules
+data/*.db
+.git
+.claude
+.DS_Store
+test
+scale_test_results.md
+workflow_v2.json
+workflow_v2_run.json

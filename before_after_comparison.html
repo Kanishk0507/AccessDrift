@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Before / After — Assignment 3 → Assignment 4 · Kanishk Singh</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{ --purple:#6B5CE7; --teal:#0EA5A0; --coral:#E55A3C; --green:#22A06B; --text:#1A1A1A; --text-2:#555; --text-3:#888; }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'DM Sans',sans-serif;color:var(--text);background:#F7F6F3;padding:40px;}
+  .slide{max-width:1080px;margin:0 auto;}
+  .kicker{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--purple);margin-bottom:8px;}
+  h1{font-family:'Syne',sans-serif;font-size:30px;font-weight:800;letter-spacing:-.02em;margin-bottom:6px;}
+  .sub{font-size:15px;color:var(--text-3);margin-bottom:28px;}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px;}
+  .col{border-radius:18px;padding:24px;}
+  .col.before{background:#FFF0ED;border:1.5px solid rgba(229,90,60,.22);}
+  .col.after{background:#E9FBF2;border:1.5px solid rgba(34,160,107,.22);}
+  .col-label{font-family:'Syne',sans-serif;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;}
+  .col.before .col-label{color:var(--coral);}
+  .col.after .col-label{color:var(--green);}
+  .col-tag{font-size:12px;color:var(--text-3);margin-bottom:16px;}
+  .row{display:flex;align-items:flex-start;gap:10px;font-size:14px;color:var(--text-2);line-height:1.55;margin-bottom:10px;}
+  .row .ic{flex-shrink:0;font-size:14px;margin-top:1px;}
+  .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;}
+  .metric{background:#fff;border:1.5px solid rgba(0,0,0,.09);border-radius:14px;padding:16px 18px;text-align:center;}
+  .metric .arrow{font-size:11px;color:var(--text-3);margin-bottom:6px;font-weight:600;}
+  .metric .big{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:var(--purple);line-height:1;}
+  .metric .lbl{font-size:11px;color:var(--text-3);margin-top:6px;}
+  .delta{font-size:11px;font-weight:700;color:var(--green);}
+  .banner{background:linear-gradient(135deg,#1A1A2E,#2A1A4A);border-radius:18px;padding:24px 28px;color:#fff;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;}
+  .banner .t{font-family:'Syne',sans-serif;font-size:17px;font-weight:800;}
+  .banner .d{font-size:13px;color:rgba(255,255,255,.65);max-width:560px;line-height:1.6;margin-top:4px;}
+  .badge{font-size:10px;font-weight:700;color:#CBA6F7;background:rgba(107,92,231,.25);padding:6px 14px;border-radius:10px;white-space:nowrap;}
+  @media print{ body{background:#fff;padding:0;} .metric,.col{box-shadow:none;} }
+</style>
+</head>
+<body>
+<div class="slide">
+  <div class="kicker">INFO7375 · Assignment 4 · Evolution</div>
+  <h1>From a Data Pipeline to an Intelligence Product</h1>
+  <div class="sub">What changed between Assignment 3 and Assignment 4 — same foundation, a new intelligence layer on top.</div>
+
+  <div class="cols">
+    <div class="col before">
+      <div class="col-label">📦 Assignment 3 — "It Works"</div>
+      <div class="col-tag">Data collection only · 8 nodes</div>
+      <div class="row"><span class="ic">📥</span>Collected 258 reference records from 3 sources (axe-core rules, WCAG criteria, RSS)</div>
+      <div class="row"><span class="ic">📊</span>Output was a CSV of 258 rows of raw rule data</div>
+      <div class="row"><span class="ic">❌</span>No live site auditing — reference data, not real violations</div>
+      <div class="row"><span class="ic">❌</span>No AI, no decisions, no analysis</div>
+      <div class="row"><span class="ic">❌</span>No diff — couldn't tell new from old</div>
+      <div class="row"><span class="ic">❌</span>No human-readable output, no delivery</div>
+      <div class="row"><span class="ic">⚠️</span>A non-technical person could not use the result</div>
+    </div>
+    <div class="col after">
+      <div class="col-label">🧠 Assignment 4 — "It's Smart"</div>
+      <div class="col-tag">AI intelligence + real outputs · 14 nodes</div>
+      <div class="row"><span class="ic">🌐</span>Crawls live sites with Playwright + axe-core 4.10</div>
+      <div class="row"><span class="ic">🔄</span>Diff engine classifies NEW / PERSISTING / RESOLVED on a stable key</div>
+      <div class="row"><span class="ic">🎯</span>Smart filter sends only new critical/serious to Claude (5 of 8 → cost control)</div>
+      <div class="row"><span class="ic">🤖</span>Claude claude-sonnet-4-6 writes a specific code fix + root-cause analysis per issue</div>
+      <div class="row"><span class="ic">📄</span>Produces a polished HTML audit report a PM reads in 2 minutes</div>
+      <div class="row"><span class="ic">📧</span>Delivers via SendGrid email + CSV for Jira, with full error handling</div>
+      <div class="row"><span class="ic">✅</span>13 real, openable output files — reproducible offline</div>
+    </div>
+  </div>
+
+  <div class="metrics">
+    <div class="metric"><div class="arrow">8 → 14</div><div class="big">14</div><div class="lbl">n8n nodes</div><div class="delta">+6 nodes</div></div>
+    <div class="metric"><div class="arrow">none → live</div><div class="big">🤖</div><div class="lbl">AI fix suggestions</div><div class="delta">Claude per violation</div></div>
+    <div class="metric"><div class="arrow">raw CSV → report</div><div class="big">13</div><div class="lbl">usable output files</div><div class="delta">HTML · CSV · email</div></div>
+    <div class="metric"><div class="arrow">untested → proven</div><div class="big">$0.026</div><div class="lbl">cost per domain</div><div class="delta">$78/mo vs $500–3K</div></div>
+  </div>
+
+  <div class="banner">
+    <div>
+      <div class="t">The one-line difference</div>
+      <div class="d">Assignment 3 produced data nobody could act on. Assignment 4 turns a live scan into a developer-ready fix list, scored, prioritized, root-caused, and delivered — for 2.6 cents a domain.</div>
+    </div>
+    <div class="badge">Built with n8n + Claude claude-sonnet-4-6</div>
+  </div>
+</div>
+</body>
+</html>

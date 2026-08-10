@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AccessDrift — The smoke detector for web accessibility</title>
+<meta name="description" content="AccessDrift watches every release of your site and tells you the moment a deploy made accessibility worse — with an AI-written fix in plain English, before a disabled user or a lawsuit finds it first.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 72 72'%3E%3Crect width='72' height='72' rx='16' fill='%230E1B2C'/%3E%3Cpath d='M22 46 L34 28 L40 38' stroke='%2317B26A' stroke-width='5' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3Cpath d='M40 38 L46 46 L53 31' stroke='%23F79009' stroke-width='5' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    /* ---- AccessDrift brand system (Assignment 7) ---- */
+    --ink:#0E1B2C;         /* Signal Ink — text, primary UI */
+    --clear:#17B26A;       /* Clear — pass / improved */
+    --drift:#F79009;       /* Drift — regression / primary CTA */
+    --drift-ink:#3A2400;   /* readable text on Drift amber */
+    --mist:#F4F6F8;        /* Mist — page canvas */
+    --slate:#5B6B7B;       /* Slate — secondary text (AA on white) */
+    --ash:#C9D2DA;         /* Ash — borders, dividers */
+
+    --bg:var(--mist); --surface:#FFFFFF; --surface-2:#EEF2F5;
+    --muted:var(--slate); --faint:#6C7A88; --line:var(--ash); --line-2:#E3E8ED;
+    /* legacy --brand* tokens remapped onto the brand: pervasive brand = Ink; soft = ink tint */
+    --brand:#0E1B2C; --brand-ink:#0E1B2C; --brand-soft:#E7EEF5;
+    --good:var(--clear); --good-soft:#E3F6EC; --bad:#D92D20; --bad-soft:#FDECEA;
+    --critical:#D92D20; --serious:var(--drift); --moderate:var(--slate); --minor:var(--clear);
+    --ink-dark:#0B1622;
+    --r:18px; --r-sm:11px; --r-xs:8px;
+    --shadow-sm:0 1px 2px rgba(14,27,44,.05), 0 1px 1px rgba(14,27,44,.03);
+    --shadow:0 16px 40px -18px rgba(14,27,44,.24);
+    --shadow-brand:0 10px 26px -12px rgba(14,27,44,.42);
+  }
+  *{box-sizing:border-box;}
+  .visually-hidden{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;}
+  :focus-visible{outline:2.5px solid var(--brand);outline-offset:2px;border-radius:5px;}
+  html{scroll-behavior:smooth;}
+  @media (prefers-reduced-motion: reduce){
+    html{scroll-behavior:auto;}
+    *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;}
+  }
+  body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--ink);margin:0;
+    -webkit-font-smoothing:antialiased;line-height:1.55;}
+  h1,h2,h3{font-family:'Space Grotesk',sans-serif;letter-spacing:-.02em;margin:0;}
+  code{font-family:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,monospace;background:var(--line-2);padding:1.5px 6px;border-radius:6px;font-size:.85em;color:#403F4A;}
+  ::selection{background:var(--brand-soft);}
+  a{color:var(--brand-ink);}
+  .skip{position:absolute;left:12px;top:-48px;background:var(--brand);color:#fff;padding:10px 16px;border-radius:10px;font-weight:700;z-index:100;transition:.2s;}
+  .skip:focus{top:12px;}
+
+  /* ---------- Nav ---------- */
+  .nav{position:sticky;top:0;z-index:30;background:rgba(250,250,252,.85);backdrop-filter:saturate(150%) blur(12px);border-bottom:1px solid var(--line);}
+  .nav-in{max-width:1180px;margin:0 auto;padding:13px 28px;display:flex;align-items:center;gap:18px;}
+  .brand{display:flex;align-items:center;gap:10px;}
+  .logo{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;color:#fff;
+    background:linear-gradient(140deg,#7B6CF6,#5341C9);box-shadow:var(--shadow-brand);font-size:17px;}
+  .brand-name{font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:17px;}
+  .nav-links{display:flex;gap:20px;margin-left:14px;}
+  .nav-links a{color:var(--muted);text-decoration:none;font-size:13.5px;font-weight:600;}
+  .nav-links a:hover{color:var(--ink);}
+  .nav .spacer{flex:1;}
+  .badge-ok{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:700;color:#1C6F4D;
+    background:var(--good-soft);border:1px solid #C5E8D6;padding:6px 13px;border-radius:999px;}
+  .badge-ok .dot{width:7px;height:7px;border-radius:50%;background:var(--good);box-shadow:0 0 0 3px rgba(31,157,107,.18);}
+  @media(max-width:760px){ .nav-links{display:none;} .badge-ok{display:none;} }
+
+  main{max-width:1180px;margin:0 auto;padding:0 28px;}
+  @media(max-width:680px){ main,.nav-in{padding-left:18px;padding-right:18px;} }
+
+  /* ---------- Hero ---------- */
+  .hero{text-align:center;padding:64px 0 40px;position:relative;}
+  .hero::before{content:"";position:absolute;inset:-40px 0 auto;height:380px;z-index:-1;
+    background:radial-gradient(620px 280px at 50% 0%, rgba(107,92,231,.14), transparent 70%);}
+  .eyebrow{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--brand-ink);background:var(--brand-soft);padding:6px 14px;border-radius:999px;margin:0 0 20px;}
+  .hero h1{font-size:clamp(30px,5vw,52px);line-height:1.04;font-weight:800;max-width:14ch;margin:0 auto 18px;}
+  .hero h1 .hl{color:var(--brand-ink);}
+  .lede{font-size:clamp(15px,2vw,18px);color:var(--muted);max-width:60ch;margin:0 auto 32px;line-height:1.6;}
+
+  .scan-hero{max-width:640px;margin:0 auto;}
+  .scan-group{display:flex;gap:8px;background:var(--surface);border:1px solid var(--line);
+    border-radius:16px;padding:8px 8px 8px 16px;align-items:center;box-shadow:var(--shadow);transition:.18s;}
+  .scan-group:focus-within{border-color:var(--brand);box-shadow:0 0 0 4px var(--brand-soft), var(--shadow);}
+  .scan-group svg{flex-shrink:0;color:var(--faint);}
+  .scan-group input{flex:1;background:none;border:none;color:var(--ink);font-size:16px;padding:10px 0;min-width:80px;}
+  .scan-group input::placeholder{color:var(--faint);}
+  .scan-group input:focus{outline:none;}
+  .scan-opts{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:center;margin-top:16px;}
+  .scan-opts label{font-size:12px;font-weight:700;color:var(--faint);text-transform:uppercase;letter-spacing:.04em;margin:0;}
+  .scan-opts #maxPages{width:auto;padding:6px 28px 6px 11px;font-size:12.5px;border-radius:999px;background-color:var(--surface);}
+  .opt-sep{color:var(--line);}
+  .try-lbl{font-size:12px;color:var(--faint);font-weight:600;}
+  .ex-chip{font-size:12.5px;font-weight:600;color:var(--muted);background:var(--surface);
+    border:1px solid var(--line);padding:6px 13px;border-radius:999px;cursor:pointer;transition:.15s;box-shadow:var(--shadow-sm);}
+  .ex-chip:hover{border-color:var(--brand);color:var(--brand-ink);}
+
+  .trust{list-style:none;display:flex;gap:12px 26px;flex-wrap:wrap;justify-content:center;padding:0;margin:38px 0 0;}
+  .trust li{font-size:13.5px;font-weight:600;color:var(--muted);display:flex;align-items:center;gap:7px;}
+
+  /* ---------- Sections ---------- */
+  .sec-head{text-align:center;max-width:60ch;margin:0 auto 26px;}
+  .sec-head h2{font-size:clamp(22px,3.4vw,30px);font-weight:800;margin:0 0 8px;}
+  .sec-head p{color:var(--muted);font-size:15px;margin:0;}
+  .results-sec{padding:34px 0 10px;}
+  .tools{padding:48px 0 20px;}
+
+  /* ---------- Cards & form ---------- */
+  .panel,.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow-sm);}
+  .panel{padding:22px;}
+  @media(max-width:600px){.panel{padding:16px;}}
+  .card{padding:0;overflow:hidden;}
+  .card-h{padding:18px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+  .card-h .ic{width:34px;height:34px;border-radius:10px;background:var(--brand-soft);color:var(--brand-ink);
+    font-size:16px;display:grid;place-items:center;flex-shrink:0;}
+  .card-h h3{font-size:16px;font-weight:800;}
+  .card-h .sub{font-size:12.5px;color:var(--muted);margin:2px 0 0;}
+  .card-h .spacer{flex:1;}
+  .card-b{padding:0 20px 20px;}
+  .divider{height:1px;background:var(--line-2);margin:0 20px 18px;}
+
+  .tools-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+  .tools-grid .span-2{grid-column:1 / -1;}
+  @media(max-width:820px){.tools-grid{grid-template-columns:1fr;}}
+
+  .hint{font-size:12.5px;color:var(--muted);line-height:1.65;margin:0 0 14px;}
+  .hint strong{color:var(--ink);font-weight:600;}
+
+  label{display:block;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);margin:0 0 6px;}
+  input,select,textarea{width:100%;font-family:inherit;font-size:13.5px;color:var(--ink);background:var(--surface);
+    border:1px solid var(--line);border-radius:var(--r-sm);padding:9px 11px;transition:.15s;}
+  input:hover,select:hover,textarea:hover{border-color:#D5D5DE;}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3.5px var(--brand-soft);}
+  textarea{resize:vertical;font-family:'JetBrains Mono',ui-monospace,Menlo,monospace;font-size:12px;line-height:1.55;}
+  select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2367666F' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 11px center;padding-right:28px;}
+
+  .grid3{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:12px;margin-bottom:16px;}
+  @media(max-width:520px){.grid3{grid-template-columns:1fr;}}
+
+  .presets{display:flex;gap:7px;flex-wrap:wrap;}
+  .chip{font-size:12px;font-weight:600;border:1px solid var(--line);background:var(--surface-2);color:#4F4E59;
+    padding:5px 12px;border-radius:999px;cursor:pointer;transition:.15s;}
+  .chip:hover{border-color:var(--brand);color:var(--brand-ink);background:#fff;}
+  .chip.clear{color:#B0341A;border-color:#F2D8D1;}
+  .chip.clear:hover{background:var(--bad-soft);}
+
+  #rows{display:flex;flex-direction:column;gap:10px;margin-bottom:14px;}
+  .vrow{background:var(--surface-2);border:1px solid var(--line);border-radius:13px;padding:14px;
+    display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;position:relative;transition:.15s;}
+  .vrow:hover{border-color:#D9D9E2;}
+  .vrow .full{grid-column:1 / -1;}
+  .vrow .row-foot{grid-column:1 / -1;display:flex;align-items:center;justify-content:space-between;gap:12px;
+    border-top:1px dashed var(--line);padding-top:11px;margin-top:2px;}
+  .switch{display:inline-flex;align-items:center;gap:9px;font-size:12px;color:#4F4E59;cursor:pointer;user-select:none;}
+  .switch input{position:absolute;opacity:0;width:0;height:0;}
+  .track{width:34px;height:19px;border-radius:999px;background:#CFCFD8;position:relative;transition:.18s;flex-shrink:0;}
+  .track::after{content:"";position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:.18s;}
+  .switch input:checked + .track{background:var(--brand);}
+  .switch input:checked + .track::after{transform:translateX(15px);}
+  .switch input:focus-visible + .track{box-shadow:0 0 0 3px var(--brand-soft);}
+  .rm{font-size:12px;color:#B0341A;background:none;border:none;cursor:pointer;font-weight:600;padding:4px 6px;border-radius:6px;}
+  .rm:hover{background:var(--bad-soft);}
+  .pill{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;padding:3px 8px;border-radius:999px;white-space:nowrap;}
+  .pill.ai{background:var(--brand-soft);color:var(--brand-ink);}
+  .pill.rule{background:var(--line-2);color:var(--muted);}
+
+  .btn{font-family:'Inter',sans-serif;font-weight:700;font-size:13.5px;border:none;border-radius:var(--r-sm);
+    padding:11px 18px;cursor:pointer;transition:.16s;display:inline-flex;align-items:center;gap:7px;justify-content:center;white-space:nowrap;}
+  .btn:active{transform:translateY(1px);}
+  .btn:disabled{opacity:.6;cursor:default;transform:none;}
+  .btn-primary{background:var(--brand);color:#fff;box-shadow:var(--shadow-brand);}
+  .btn-primary:hover:not(:disabled){background:var(--brand-ink);}
+  .btn-lg{padding:13px 26px;font-size:15px;border-radius:13px;}
+  .btn-ghost{background:var(--surface-2);color:#4F4E59;border:1px solid var(--line);}
+  .btn-ghost:hover:not(:disabled){border-color:var(--brand);color:var(--brand-ink);background:#fff;}
+  .actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+
+  details.adv{margin-top:16px;border:1px dashed var(--line);border-radius:11px;background:var(--surface-2);overflow:hidden;}
+  details.adv summary{font-size:11.5px;font-weight:700;color:#4F4E59;cursor:pointer;padding:12px 14px;list-style:none;display:flex;align-items:center;gap:8px;}
+  details.adv summary::-webkit-details-marker{display:none;}
+  details.adv summary::before{content:"▸";color:var(--faint);transition:.15s;}
+  details.adv[open] summary::before{transform:rotate(90deg);}
+  details.adv .adv-b{padding:0 14px 14px;}
+
+  /* ---------- Results output ---------- */
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:10px;margin-bottom:18px;}
+  .stat{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:13px 14px;position:relative;overflow:hidden;}
+  .stat::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent,var(--line));}
+  .stat .k{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);}
+  .stat .v{font-family:'Space Grotesk',sans-serif;font-size:25px;font-weight:800;margin-top:3px;line-height:1;}
+  .stat .v small{font-size:12px;color:var(--faint);font-weight:700;}
+
+  .tabs{display:inline-flex;gap:2px;background:var(--surface-2);border:1px solid var(--line);border-radius:11px;padding:3px;margin-bottom:14px;flex-wrap:wrap;}
+  .tab{font-size:12.5px;font-weight:600;color:var(--muted);background:none;border:none;padding:7px 13px;cursor:pointer;border-radius:8px;transition:.15s;}
+  .tab:hover{color:var(--ink);}
+  .tab.active{color:var(--brand-ink);background:#fff;box-shadow:var(--shadow-sm);}
+  .tabpane{display:none;}
+  .tabpane.active{display:block;animation:fade .25s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+
+  .frame{border:1px solid var(--line);border-radius:13px;overflow:hidden;box-shadow:var(--shadow-sm);}
+  .frame-bar{display:flex;align-items:center;gap:7px;padding:9px 13px;background:var(--surface-2);border-bottom:1px solid var(--line);}
+  .frame-bar .dots{display:flex;gap:5px;}
+  .frame-bar .dots i{width:9px;height:9px;border-radius:50%;background:#D6D6DE;}
+  .frame-bar .fname{font-size:11.5px;color:var(--muted);font-family:'JetBrains Mono',ui-monospace,Menlo,monospace;margin-left:4px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  iframe{width:100%;height:560px;border:none;background:#fff;display:block;}
+  pre{background:var(--ink-dark);color:#D8D5F2;font-family:'JetBrains Mono',ui-monospace,Menlo,monospace;font-size:11.5px;line-height:1.6;padding:16px;border-radius:13px;overflow:auto;max-height:560px;margin:0;}
+
+  .dl{font-size:11.5px;font-weight:700;color:var(--brand-ink);background:var(--brand-soft);border:none;border-radius:8px;padding:7px 13px;cursor:pointer;transition:.15s;display:inline-flex;align-items:center;gap:5px;}
+  .dl:hover{background:#E1DDFF;}
+
+  .err{background:var(--bad-soft);color:#A3331C;border:1px solid #F2C7BD;border-radius:12px;padding:14px 16px;font-size:13px;margin-bottom:14px;display:flex;gap:10px;align-items:flex-start;}
+  .warn{background:#FEF6E6;color:#7A4E0E;border:1px solid #F3DFB0;border-radius:12px;padding:12px 14px;font-size:12.5px;line-height:1.55;margin-bottom:14px;display:flex;gap:9px;align-items:flex-start;}
+  .warn span:first-child{font-size:15px;line-height:1;}
+
+  .empty{text-align:center;padding:40px 24px;color:var(--muted);}
+  .empty .icon{width:62px;height:62px;border-radius:18px;background:var(--brand-soft);color:var(--brand-ink);display:grid;place-items:center;margin:0 auto 16px;font-size:28px;}
+  .empty h3{font-size:18px;color:var(--ink);margin:0 0 6px;font-weight:800;}
+  .empty p{font-size:13.5px;margin:0 auto;max-width:380px;line-height:1.6;}
+  .steps{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:26px;}
+  .step{flex:1;min-width:160px;max-width:230px;background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:16px;text-align:left;}
+  .step .n{width:26px;height:26px;border-radius:8px;background:var(--brand);color:#fff;font-weight:800;font-family:'Space Grotesk',sans-serif;display:grid;place-items:center;font-size:13px;margin-bottom:10px;}
+  .step b{display:block;font-size:13.5px;color:var(--ink);margin-bottom:3px;}
+  .step span{font-size:12px;color:var(--muted);line-height:1.5;}
+  .spinner{width:44px;height:44px;border-radius:50%;border:3.5px solid var(--brand-soft);border-top-color:var(--brand);animation:spin .8s linear infinite;margin:0 auto 18px;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  /* history */
+  #history{display:flex;flex-direction:column;gap:8px;max-height:300px;overflow:auto;}
+  .hist-empty{font-size:12.5px;color:var(--faint);text-align:center;padding:24px 10px;}
+  .hist{display:flex;align-items:center;gap:12px;padding:11px 13px;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;cursor:pointer;transition:.15s;}
+  .hist:hover{border-color:var(--brand);background:#fff;transform:translateX(2px);}
+  .hist .score{width:42px;height:42px;border-radius:11px;flex-shrink:0;display:grid;place-items:center;font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:15px;color:#fff;}
+  .hist .meta{flex:1;min-width:0;}
+  .hist .dom{font-weight:700;font-size:13.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .hist .det{font-size:11.5px;color:var(--muted);margin-top:1px;}
+  .hist .src{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;padding:2px 7px;border-radius:999px;}
+  .hist .src.live{background:var(--brand-soft);color:var(--brand-ink);}
+  .hist .src.manual{background:var(--line-2);color:var(--muted);}
+  .hist .del,.watch .del{background:none;border:none;color:var(--faint);cursor:pointer;font-size:14px;min-width:24px;min-height:24px;display:grid;place-items:center;padding:2px;border-radius:6px;flex-shrink:0;}
+  .hist .del:hover,.watch .del:hover{background:var(--bad-soft);color:var(--bad);}
+
+  /* evidence */
+  .evidence-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;}
+  .ev{margin:0;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--surface-2);}
+  .ev img{width:100%;display:block;background:#fff;border-bottom:1px solid var(--line);max-height:220px;object-fit:contain;object-position:top;}
+  .ev figcaption{padding:9px 11px;font-size:11px;color:var(--muted);display:flex;flex-wrap:wrap;align-items:center;gap:6px;}
+  .ev-sel{font-family:'JetBrains Mono',ui-monospace,Menlo,monospace;font-size:10.5px;color:var(--faint);width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .ev-sev{font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;padding:2px 7px;border-radius:999px;color:#fff;}
+  .ev-critical{background:var(--critical);} .ev-serious{background:var(--serious);}
+  .ev-moderate{background:var(--moderate);} .ev-minor{background:var(--minor);}
+
+  /* ---------- Native audit report ---------- */
+  .report-head{display:flex;align-items:center;justify-content:space-between;gap:12px 16px;flex-wrap:wrap;margin-bottom:16px;}
+  .sumline{display:flex;gap:8px 18px;flex-wrap:wrap;font-size:13px;font-weight:600;color:var(--muted);}
+  .sumline b{color:var(--ink);}
+  .vlist{display:flex;flex-direction:column;gap:14px;}
+  .vcard{border:1px solid var(--line);border-left:4px solid var(--line);border-radius:var(--r-sm);background:var(--surface);box-shadow:var(--shadow-sm);}
+  .vcard.critical{border-left-color:var(--critical);}
+  .vcard.serious{border-left-color:var(--serious);}
+  .vcard.moderate{border-left-color:var(--moderate);}
+  .vcard.minor{border-left-color:var(--minor);}
+  .vcard-h{display:flex;align-items:flex-start;gap:11px;padding:14px 16px 0;}
+  .vsev{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;padding:3px 9px;border-radius:999px;flex-shrink:0;margin-top:2px;white-space:nowrap;}
+  .vsev.critical{background:#FDEAE5;color:#A3331C;}
+  .vsev.serious{background:#FBEFD7;color:#7A4E0E;}
+  .vsev.moderate{background:var(--brand-soft);color:var(--brand-ink);}
+  .vsev.minor{background:#D6F2F0;color:#0A6E6A;}
+  .vcard-title{font-family:inherit;font-size:15px;font-weight:700;color:var(--ink);line-height:1.4;margin:0;letter-spacing:normal;}
+  .vmeta{font-size:12px;color:var(--muted);padding:7px 16px 0;line-height:1.6;overflow-wrap:anywhere;}
+  .vbody{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:14px 16px 16px;}
+  @media(max-width:620px){.vbody{grid-template-columns:1fr;}}
+  .vlbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);margin:0 0 5px;}
+  .vlbl:not(:first-child){margin-top:12px;}
+  .vtext{font-size:13px;color:var(--muted);line-height:1.6;margin:0;}
+  .vsnippet{display:inline-block;font-size:11.5px;max-width:100%;overflow-wrap:anywhere;}
+  .vfix{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;align-self:start;}
+  .vfix-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--brand-ink);margin:0 0 6px;}
+  .vfix-meta{font-size:11.5px;color:var(--faint);margin:8px 0 0;}
+  .exec-summary{background:linear-gradient(140deg,#F1EEFF,#E9F6F3);border:1px solid #E0DAF5;border-radius:12px;padding:16px 18px;margin-top:16px;}
+  .exec-summary .vlbl{color:var(--brand-ink);}
+  .exec-summary p:last-child{font-size:13px;color:#33324a;line-height:1.7;margin:0;}
+  .clean-state{text-align:center;padding:34px 20px;}
+  .clean-state .big{font-size:42px;line-height:1;}
+  .clean-state h3{font-size:18px;color:var(--ink);margin:10px 0 4px;font-weight:800;}
+  .clean-state p{font-size:13.5px;color:var(--muted);margin:0;}
+
+  /* ---------- Native email digest ---------- */
+  .digest{max-width:600px;margin:0 auto;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--surface);box-shadow:var(--shadow-sm);}
+  .digest-h{background:var(--ink-dark);color:#fff;padding:20px 22px;}
+  .digest-h .k{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#CBA6F7;}
+  .digest-h .big{font-family:'Space Grotesk',sans-serif;font-size:19px;font-weight:800;margin:7px 0 4px;line-height:1.2;}
+  .digest-h .sc{font-size:13px;color:rgba(255,255,255,.72);}
+  .digest-b{padding:20px 22px;}
+  .digest-b > p{font-size:13.5px;color:var(--muted);line-height:1.6;margin:0 0 12px;}
+  .digest-item{padding:10px 0;border-bottom:1px solid var(--line-2);}
+  .digest-item:last-of-type{border-bottom:none;}
+  .digest-item b{font-size:13.5px;color:var(--ink);}
+  .digest-item span{display:block;font-size:12px;color:var(--faint);margin-top:3px;line-height:1.5;}
+
+  /* monitoring */
+  .watch-form{display:flex;gap:8px;flex-wrap:wrap;}
+  .watch-form input{flex:1;min-width:130px;}
+  .watch-form select{width:auto;}
+  #watches{display:flex;flex-direction:column;gap:8px;margin-top:12px;}
+  .watch{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface-2);border:1px solid var(--line);border-radius:11px;}
+  .watch .wmeta{flex:1;min-width:0;}
+  .watch .wurl{font-weight:600;font-size:12.5px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .watch .wdet{font-size:11px;color:var(--muted);margin-top:1px;}
+  .watch .wstatus{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;padding:2px 8px;border-radius:999px;background:var(--line-2);color:var(--muted);}
+  .watch .wstatus.reg{background:var(--bad-soft);color:var(--bad);}
+  .watch .wstatus.ok{background:var(--good-soft);color:#1C6F4D;}
+
+  /* send box */
+  .sendbox{background:linear-gradient(140deg,#F1EEFF,#E9F6F3);border:1px solid #E0DAF5;border-radius:13px;padding:15px;margin-bottom:14px;}
+  .sendbox label{color:#574BB0;}
+  .send-row{display:flex;gap:9px;align-items:center;flex-wrap:wrap;}
+  .send-row input{flex:1;min-width:190px;background:#fff;}
+
+  /* footer */
+  .foot{background:var(--ink-dark);color:#fff;margin-top:56px;}
+  .foot-in{max-width:1180px;margin:0 auto;padding:34px 28px;display:flex;gap:24px;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;}
+  .foot .f-brand{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+  .foot .f-brand .logo{box-shadow:none;}
+  .foot .f-name{font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:16px;}
+  .foot p{color:rgba(255,255,255,.72);font-size:13px;max-width:42ch;margin:0;line-height:1.6;}
+  .foot .stack{font-size:12px;color:rgba(255,255,255,.6);text-align:right;line-height:1.8;}
+  .foot .stack b{color:rgba(255,255,255,.9);display:block;font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;}
+  @media(max-width:600px){ .foot .stack{text-align:left;} }
+
+  /* ============ AccessDrift brand overrides + new sections (A8) ============ */
+  .logo{background:var(--ink)!important;box-shadow:none;display:grid;place-items:center;}
+  .nav .brand{text-decoration:none;color:inherit;}
+  .btn-primary{background:var(--drift);color:var(--drift-ink);box-shadow:0 10px 22px -12px rgba(247,144,9,.7);}
+  .btn-primary:hover:not(:disabled){background:#E07E00;color:var(--drift-ink);}
+  .nav-cta{padding:8px 15px;font-size:13px;border-radius:999px;}
+  @media(max-width:760px){ .nav-cta{display:none;} }
+  .hl{color:var(--ink);}
+  .eyebrow{font-family:'JetBrains Mono',ui-monospace,monospace;text-transform:none;letter-spacing:.02em;}
+
+  section.band{padding:56px 0;border-top:1px solid var(--line-2);}
+  section.band.ink{background:var(--ink);border:none;}
+  section.band.ink .sec-head h2{color:#fff;} section.band.ink .sec-head p{color:#9fb4c9;}
+
+  /* Products / Services */
+  .offer-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;}
+  @media(max-width:820px){.offer-grid{grid-template-columns:1fr;}}
+  .offer{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;}
+  .offer .thumb{background:var(--ink);padding:22px;display:block;}
+  .offer .thumb svg{display:block;width:100%;height:96px;}
+  .offer .body{padding:18px 20px 22px;}
+  .offer .verb{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--slate);}
+  .offer h3{font-size:18px;font-weight:700;margin:6px 0 8px;}
+  .offer p{font-size:13.5px;color:var(--slate);line-height:1.6;margin:0;}
+  .offer .price{margin-top:14px;font-size:12.5px;font-weight:700;color:var(--ink);}
+  .offer .price .free{color:var(--clear);}
+
+  /* About */
+  .about-lead{max-width:60ch;margin:0 auto 30px;text-align:center;color:var(--slate);font-size:16px;line-height:1.65;}
+  .mvv{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:22px;}
+  @media(max-width:820px){.mvv{grid-template-columns:1fr;}}
+  .mvv .card{padding:20px;}
+  .mvv .lbl{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--slate);margin-bottom:8px;}
+  .mvv h3{font-size:16px;margin:0 0 8px;}
+  .mvv p{font-size:13px;color:var(--slate);line-height:1.6;margin:0;}
+  .values{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin:8px 0 22px;}
+  @media(max-width:820px){.values{grid-template-columns:1fr 1fr;}}
+  .value{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:14px;}
+  .value b{display:block;font-family:'Space Grotesk',sans-serif;font-size:13.5px;margin-bottom:5px;}
+  .value span{font-size:11.5px;color:var(--slate);line-height:1.5;}
+  .guardian{background:var(--ink);color:#dbe6f0;border-radius:var(--r);padding:24px 26px;display:flex;gap:18px;align-items:flex-start;}
+  .guardian svg{flex-shrink:0;}
+  .guardian b{color:#fff;}
+
+  /* Contact */
+  .contact-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:22px;}
+  @media(max-width:820px){.contact-grid{grid-template-columns:1fr;}}
+  .contact .chan{display:flex;flex-direction:column;gap:12px;}
+  .chan a.row{display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sm);text-decoration:none;color:var(--ink);font-weight:600;font-size:14px;transition:.15s;}
+  .chan a.row:hover{border-color:var(--ink);transform:translateX(2px);}
+  .chan a.row .ic{width:34px;height:34px;border-radius:9px;background:var(--surface-2);display:grid;place-items:center;flex-shrink:0;}
+  .chan a.row small{display:block;font-weight:500;color:var(--slate);font-size:11.5px;margin-top:1px;}
+  .promise{font-size:12.5px;color:var(--slate);margin-top:6px;line-height:1.6;}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to main content</a>
+
+<header class="nav">
+  <div class="nav-in">
+    <a class="brand" href="#main" aria-label="AccessDrift home">
+      <span class="logo" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 72 72"><path d="M22 46 L34 28 L40 38" stroke="#17B26A" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M40 38 L46 46 L53 31" stroke="#F79009" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+      </span>
+      <span class="brand-name">AccessDrift</span>
+    </a>
+    <nav class="nav-links" aria-label="Primary">
+      <a href="#products-title">Product</a>
+      <a href="#tools-title">Features</a>
+      <a href="#about-title">About</a>
+      <a href="#contact-title">Contact</a>
+    </nav>
+    <span class="spacer"></span>
+    <span class="badge-ok"><span class="dot" aria-hidden="true"></span> Passes its own audit · 100/100</span>
+    <a href="#hero-title" class="btn btn-primary nav-cta">Watch my releases</a>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- ============== HERO / PITCH ============== -->
+  <section class="hero" aria-labelledby="hero-title">
+    <p class="eyebrow">AccessDrift · the smoke detector for web accessibility</p>
+    <h1 id="hero-title">Find, fix &amp; <span class="hl">monitor</span> web accessibility — automatically.</h1>
+    <p class="lede">Paste any URL. We launch a real headless browser, audit the live pages with axe-core, show exactly what’s wrong and how to fix it, then track every change over time and alert you the moment accessibility regresses.</p>
+
+    <div class="scan-hero">
+      <label for="scanUrl" class="visually-hidden">Website URL to scan</label>
+      <div class="scan-group">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3" stroke-linecap="round"/></svg>
+        <input id="scanUrl" type="url" placeholder="Enter a website URL, e.g. example.com" autocomplete="off" spellcheck="false">
+        <button type="button" class="btn btn-primary btn-lg" id="scanBtn">Scan</button>
+      </div>
+      <div class="scan-opts">
+        <label for="maxPages">Crawl depth</label>
+        <select id="maxPages">
+          <option value="1">1 page</option>
+          <option value="3">3 pages</option>
+          <option value="5">5 pages</option>
+          <option value="10">10 pages</option>
+        </select>
+        <span class="opt-sep" aria-hidden="true">|</span>
+        <span class="try-lbl" aria-hidden="true">Try:</span>
+        <button type="button" class="ex-chip" data-url="https://www.w3.org/WAI/demos/bad/before/home.html">W3C broken demo</button>
+        <button type="button" class="ex-chip" data-url="https://example.com">example.com</button>
+        <button type="button" class="ex-chip" id="selfScanChip" title="Audit this very tool with its own engine">🪞 This app</button>
+      </div>
+    </div>
+
+    <ul class="trust">
+      <li>🌐 Real Chrome + axe-core</li>
+      <li>📈 Tracks regressions over time</li>
+      <li>📸 Screenshot evidence</li>
+      <li>🔔 Email alerts on regression</li>
+    </ul>
+  </section>
+
+  <!-- ============== PRODUCTS / SERVICES ============== -->
+  <section class="band" id="products" aria-labelledby="products-title">
+    <div class="sec-head">
+      <h2 id="products-title" tabindex="-1">Three things AccessDrift does — and nothing it doesn't</h2>
+      <p>Monitor, detect, fix. Everyone else audits a snapshot; we guard the change between releases for teams with no accessibility specialist.</p>
+    </div>
+    <div class="offer-grid">
+
+      <article class="offer">
+        <span class="thumb" aria-hidden="true">
+          <svg viewBox="0 0 240 96" role="img" aria-label="Continuous watch-ring monitoring mark">
+            <circle cx="120" cy="48" r="6" fill="#F79009"/>
+            <path d="M96 44 A28 28 0 0 1 144 44" fill="none" stroke="#17B26A" stroke-width="4" stroke-linecap="round"/>
+            <path d="M82 36 A44 44 0 0 1 158 36" fill="none" stroke="#5B6B7B" stroke-width="4" stroke-linecap="round"/>
+            <path d="M68 28 A60 60 0 0 1 172 28" fill="none" stroke="#33465b" stroke-width="4" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <div class="body">
+          <div class="verb">01 · Monitor</div>
+          <h3>Watch every release</h3>
+          <p>Connect a URL or a deploy hook and AccessDrift re-audits the live pages in real Chrome + axe-core on every ship — continuous, like uptime, not a one-time audit that decays.</p>
+          <div class="price">Included · <span class="free">Free tier</span></div>
+        </div>
+      </article>
+
+      <article class="offer">
+        <span class="thumb" aria-hidden="true">
+          <svg viewBox="0 0 240 96" role="img" aria-label="Delta chart showing a release-over-release regression">
+            <line x1="24" y1="74" x2="216" y2="74" stroke="#33465b" stroke-width="3" stroke-linecap="round"/>
+            <path d="M36 74 L96 24 L126 54" stroke="#17B26A" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            <path d="M126 54 L156 74 L204 30" stroke="#F79009" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          </svg>
+        </span>
+        <div class="body">
+          <div class="verb">02 · Diff &amp; Detect</div>
+          <h3>Catch the exact regression</h3>
+          <p>We diff this release against the last and surface only what got <em>worse</em> — the precise element, page, and rule a deploy broke. Signal over noise: it fires only on real regressions.</p>
+          <div class="price">Team · $29/mo</div>
+        </div>
+      </article>
+
+      <article class="offer">
+        <span class="thumb" aria-hidden="true">
+          <svg viewBox="0 0 240 96" role="img" aria-label="A plain-English code fix">
+            <rect x="30" y="26" width="180" height="44" rx="8" fill="#0b1622" stroke="#33465b"/>
+            <text x="44" y="46" font-family="'JetBrains Mono',monospace" font-size="11" fill="#c7d3df">&lt;button aria-label=</text>
+            <text x="44" y="62" font-family="'JetBrains Mono',monospace" font-size="11" fill="#17B26A">"Close"&gt; // fix applied</text>
+          </svg>
+        </span>
+        <div class="body">
+          <div class="verb">03 · Fix in plain English</div>
+          <h3>Get the fix, not a citation</h3>
+          <p>Every issue comes with who it hurts and the exact code change — written in plain English. Low-confidence cases fall back to a human-verified rulebook, so the advice is never made up.</p>
+          <div class="price">Agency · custom</div>
+        </div>
+      </article>
+
+    </div>
+  </section>
+
+  <!-- ============== RESULTS ============== -->
+  <section class="results-sec" aria-labelledby="results-title">
+    <div class="sec-head">
+      <h2 id="results-title" tabindex="-1">Your audit, explained</h2>
+      <p>One scan produces a full report, screenshot evidence, an email digest, a CSV for your tracker, and the raw diff — with plain-English fixes for every issue.</p>
+    </div>
+    <div class="panel">
+      <div id="out" role="region" aria-label="Scan results" aria-live="polite">
+        <div class="empty">
+          <div class="icon" aria-hidden="true">📊</div>
+          <h3>Run your first scan</h3>
+          <p>Enter a URL above and press <strong>Scan</strong>. Results appear here in seconds.</p>
+          <div class="steps">
+            <div class="step"><div class="n" aria-hidden="true">1</div><b>Scan</b><span>We render the live page in real Chrome and run the full WCAG ruleset.</span></div>
+            <div class="step"><div class="n" aria-hidden="true">2</div><b>Understand</b><span>See each issue with a screenshot and a concrete, plain-English fix.</span></div>
+            <div class="step"><div class="n" aria-hidden="true">3</div><b>Monitor</b><span>Re-scan over time and get emailed only when something regresses.</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============== TOOLS ============== -->
+  <section class="tools" id="tools" aria-labelledby="tools-title">
+    <div class="sec-head">
+      <h2 id="tools-title">Everything you need to stay compliant</h2>
+      <p>Track history, schedule monitoring, and explore your data — all backed by a real database.</p>
+    </div>
+
+    <div class="tools-grid">
+
+      <!-- Auto-fix (beta) -->
+      <article class="card span-2" aria-labelledby="h-fix">
+        <div class="card-h">
+          <span class="ic" aria-hidden="true">🔧</span>
+          <div>
+            <h3 id="h-fix">Auto-fix <span style="font-size:10px;font-weight:800;color:var(--brand-ink);background:var(--brand-soft);padding:2px 7px;border-radius:8px;vertical-align:middle;">BETA</span></h3>
+            <p class="sub">Paste HTML → we apply the safe fixes and re-scan to prove the score climbs</p>
+          </div>
+          <span class="spacer"></span>
+          <button type="button" class="dl" id="fixDemoBtn" title="Load a deliberately-broken sample">Load sample</button>
+        </div>
+        <div class="divider"></div>
+        <div class="card-b">
+          <p class="hint">We only auto-apply <strong>deterministic, high-confidence</strong> fixes (lang, title, alt, aria-label, labels, focusable scroll regions, iframe titles). Judgement calls (contrast, heading order, touch-target size) are <strong>flagged for review</strong>, never guessed. With an API key set, labels are written by <strong>Claude</strong>.</p>
+          <label for="fixInput" class="visually-hidden">HTML to fix</label>
+          <textarea id="fixInput" rows="7" placeholder="Paste a full HTML document here…" style="font-family:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,monospace;font-size:12.5px;resize:vertical;"></textarea>
+          <div style="display:flex;gap:8px;align-items:center;margin-top:12px;">
+            <button type="button" class="btn btn-primary" id="fixBtn">🔧 Fix &amp; re-scan</button>
+            <span id="fixAi" class="try-lbl"></span>
+          </div>
+          <div id="fixOut" style="margin-top:16px;"></div>
+        </div>
+      </article>
+
+      <!-- History -->
+      <article class="card" aria-labelledby="h-history">
+        <div class="card-h">
+          <span class="ic" aria-hidden="true">🗂</span>
+          <div>
+            <h3 id="h-history">Scan history</h3>
+            <p class="sub">Every scan is saved — click any to reopen it</p>
+          </div>
+          <span class="spacer"></span>
+          <button type="button" class="dl" id="analyticsBtn" title="Charts across all scans">📊 Analytics</button>
+          <button type="button" class="dl" id="trendsBtn" title="Cross-scan trends">📈 Trends</button>
+        </div>
+        <div class="divider"></div>
+        <div class="card-b">
+          <div id="history"><div class="hist-empty">No saved scans yet — your scans will appear here.</div></div>
+        </div>
+      </article>
+
+      <!-- Monitoring -->
+      <article class="card" aria-labelledby="h-monitor">
+        <div class="card-h">
+          <span class="ic" aria-hidden="true">🔔</span>
+          <div>
+            <h3 id="h-monitor">Scheduled monitoring</h3>
+            <p class="sub">Auto re-scan · email only when it regresses</p>
+          </div>
+        </div>
+        <div class="divider"></div>
+        <div class="card-b">
+          <div class="watch-form">
+            <label for="watchUrl" class="visually-hidden">URL to monitor</label>
+            <input id="watchUrl" type="url" placeholder="https://site.com to watch">
+            <label for="watchEmail" class="visually-hidden">Alert email</label>
+            <input id="watchEmail" type="email" placeholder="alert email">
+            <label for="watchEvery" class="visually-hidden">Check interval</label>
+            <select id="watchEvery">
+              <option value="5">every 5 min</option>
+              <option value="15">every 15 min</option>
+              <option value="60" selected>hourly</option>
+              <option value="1440">daily</option>
+            </select>
+            <button type="button" class="btn btn-ghost" id="watchBtn">＋ Watch</button>
+          </div>
+          <p class="hint" style="margin:12px 0 0">We re-scan each watched site on its interval and email the alert address <strong>only when the score drops or a new critical/serious issue appears</strong> — never noise.</p>
+          <div id="watches"></div>
+        </div>
+      </article>
+
+    </div>
+  </section>
+
+  <!-- ============== ABOUT ============== -->
+  <section class="band" id="about" aria-labelledby="about-title">
+    <div class="sec-head">
+      <h2 id="about-title" tabindex="-1">Accessibility fails silently. We're the alarm.</h2>
+    </div>
+    <p class="about-lead">One in four adults has a disability, yet when a deploy quietly locks them out, nobody on the team feels it — the user just leaves. AccessDrift started as a scanner, until it became clear that everyone audits a <em>snapshot</em> and nobody guards the <em>change between releases</em>. So we built the tool that watches that change, for the small teams who can't afford a specialist.</p>
+
+    <div class="mvv">
+      <div class="card"><div class="lbl">Mission</div><h3>What we do</h3><p>Help small product teams with no accessibility specialist catch the exact moment a release breaks their site — and fix it in plain English — before a disabled user or a legal complaint finds it first.</p></div>
+      <div class="card"><div class="lbl">Vision</div><h3>Where we're going</h3><p>A web where accessibility is a continuously-monitored property of every release — tracked like uptime or test coverage — not a one-time audit that decays the moment it passes.</p></div>
+      <div class="card"><div class="lbl">Purpose</div><h3>Why we exist</h3><p>So the people who get shut out are never the early-warning system for the people who shut them out. Inclusion shouldn't be a privilege of teams that can afford a specialist.</p></div>
+    </div>
+
+    <div class="values">
+      <div class="value"><b>Trust over reach</b><span>Never ship a fix we can't stand behind. Low-confidence? Fall back to a human-verified rulebook.</span></div>
+      <div class="value"><b>Signal over noise</b><span>Alert only when accessibility got worse. A tool that cries wolf gets muted.</span></div>
+      <div class="value"><b>Inclusion is the product</b><span>Accessibility is the whole point — not a compliance checkbox or a badge.</span></div>
+      <div class="value"><b>Plain English</b><span>Translate "you fail SC 1.4.3" into who it hurts and the exact code change.</span></div>
+      <div class="value"><b>Honest heuristics</b><span>Label a guess a guess. We never claim WCAG conformance we can't prove.</span></div>
+    </div>
+
+    <div class="guardian">
+      <svg width="52" height="52" viewBox="0 0 72 72" aria-hidden="true"><circle cx="36" cy="36" r="28" stroke="#3a4d63" stroke-width="3.5" fill="none"/><path d="M21 45 L33 27 L39 37" stroke="#17B26A" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M39 37 L45 45 L52 30" stroke="#F79009" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/><circle cx="36" cy="36" r="3.2" fill="#fff"/></svg>
+      <div><b>Our archetype is the Guardian, with a Sage's honesty.</b> A guardian protects people who can't see the threat themselves — it watches, it warns, it never panics, and it earns trust by being right. That's why we're quiet by default and speak in exactly one signal color: silent until it matters, then unmistakably clear.</div>
+    </div>
+  </section>
+
+  <!-- ============== CONTACT ============== -->
+  <section class="band" id="contact" aria-labelledby="contact-title">
+    <div class="sec-head">
+      <h2 id="contact-title" tabindex="-1">Talk to us — or just start</h2>
+      <p>Book a look at your next deploy, or reach out directly. We reply to every message.</p>
+    </div>
+    <div class="contact-grid contact">
+      <form class="panel" id="contactForm" aria-label="Contact AccessDrift">
+        <div style="margin-bottom:12px"><label for="cName">Name</label><input id="cName" type="text" autocomplete="name" required></div>
+        <div style="margin-bottom:12px"><label for="cEmail">Work email</label><input id="cEmail" type="email" autocomplete="email" required></div>
+        <div style="margin-bottom:14px"><label for="cMsg">Message</label><textarea id="cMsg" rows="4" placeholder="What are you shipping, and what are you worried about breaking?"></textarea></div>
+        <button type="submit" class="btn btn-primary">Send message</button>
+        <p class="promise">Or skip the form — <a href="#hero-title">start a free scan in 2 minutes</a>. No credit card, no overlay script, no lock-in.</p>
+      </form>
+      <div class="chan">
+        <a class="row" href="mailto:singh.kanish@northeastern.edu"><span class="ic" aria-hidden="true">✉️</span><span>Email<small>singh.kanish@northeastern.edu</small></span></a>
+        <a class="row" href="https://github.com/" target="_blank" rel="noopener"><span class="ic" aria-hidden="true">🐙</span><span>GitHub<small>See the scanner &amp; regression engine</small></span></a>
+        <a class="row" href="https://www.linkedin.com/" target="_blank" rel="noopener"><span class="ic" aria-hidden="true">in</span><span>LinkedIn<small>Kanishk Singh · founder</small></span></a>
+        <a class="row" href="#products"><span class="ic" aria-hidden="true">📅</span><span>Book a 15-min demo<small>See it watch your next deploy</small></span></a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="foot-in">
+    <div>
+      <div class="f-brand"><span class="logo" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 72 72"><path d="M22 46 L34 28 L40 38" stroke="#17B26A" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M40 38 L46 46 L53 31" stroke="#F79009" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span><span class="f-name">AccessDrift</span></div>
+      <p>The smoke detector for web accessibility. AccessDrift watches every release and tells you the moment a deploy made your site worse for someone who depends on it — with the fix in plain English.</p>
+    </div>
+    <div class="stack">
+      <b>Built with</b>
+      Node.js · Puppeteer + Chrome<br>
+      axe-core · SQLite · Claude<br>
+      Tested · documented · self-audited
+    </div>
+  </div>
+</footer>
+
+<script>
+const $ = id => document.getElementById(id);
+// Contact form → compose an email (first-version, no backend required)
+(function(){
+  const f = document.getElementById('contactForm');
+  if(!f) return;
+  f.addEventListener('submit', e => {
+    e.preventDefault();
+    const name = encodeURIComponent(document.getElementById('cName').value || '');
+    const email = document.getElementById('cEmail').value || '';
+    const msg = document.getElementById('cMsg').value || '';
+    const body = encodeURIComponent(msg + '\n\n— ' + decodeURIComponent(name) + ' (' + email + ')');
+    window.location.href = 'mailto:singh.kanish@northeastern.edu?subject=' +
+      encodeURIComponent('AccessDrift enquiry from ' + decodeURIComponent(name)) + '&body=' + body;
+  });
+})();
+const esc = v => String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ---------- Static-hosting fallback ----------
+   This page is also served statically (no Node backend). When /scan, /fix, /send, or
+   /api/* aren't reachable, every live feature below degrades to a labeled demo instead
+   of a dead button or a raw fetch error. */
+const ON_FILE_PROTOCOL = location.protocol === 'file:';
+function domainOf(u){ try{ return new URL(u.startsWith('http')?u:'https://'+u).hostname; }catch(e){ return u; } }
+const DEMO_RESULT = {
+  summary: {
+    domain: 'example.com', scan_date: '2026-07-24', page_url: '', current_score: 42, score_delta: -18,
+    new_count: 5, persisting_count: 2, resolved_count: 1, claude_calls: 3, saved_calls: 2,
+    live: true, compared_to: '2026-07-10', scan_number: 4, pages_scanned: 3,
+    engine: 'axe-core 4.12 + Chrome headless', scan_id: 'demo-0001',
+    warning: 'Demo preview — this is a pre-recorded sample report. Connect the live AccessDrift backend (Node + Chrome + axe-core) to scan real URLs.',
+  },
+  violations: [
+    { impact:'critical', description:'Images missing alternative text', rule_id:'image-alt', wcag_criterion:'1.1.1 (A)',
+      plain_english:'Three product photos in the hero carousel have no alt text, so a screen-reader user hears only "image" and has no idea what is being sold.',
+      impact_statement:'Blind and low-vision shoppers using a screen reader cannot tell what the images show — they may abandon the page.',
+      selector:'.carousel img', ai_generated:true, code_fix:'Add a concise, specific alt attribute per image, e.g. alt="Red running shoes on a track".', estimated_time:'5 min', risk_level:'Low' },
+    { impact:'critical', description:'Form input missing an accessible label', rule_id:'label', wcag_criterion:'1.3.1 / 4.1.2 (A)',
+      plain_english:'The newsletter email field has a placeholder but no <label>, so screen readers announce it as an unlabeled text box.',
+      impact_statement:'Screen-reader and voice-control users can\'t identify or reliably fill out the field.',
+      selector:'input[name="newsletter_email"]', ai_generated:true, code_fix:'Wrap with <label for="newsletter_email">Email address</label> or add aria-label="Email address".', estimated_time:'3 min', risk_level:'Low' },
+    { impact:'serious', description:'Icon button has no accessible name', rule_id:'button-name', wcag_criterion:'4.1.2 (A)',
+      plain_english:'The wishlist heart icon is a <button> with only an SVG inside — no text, aria-label, or title.',
+      impact_statement:'Screen-reader users hear "button" with no purpose and skip it, missing the feature entirely.',
+      selector:'.wishlist-toggle', ai_generated:false, code_fix:'Add aria-label="Add to wishlist" to the <button>.', estimated_time:'2 min', risk_level:'Low' },
+    { impact:'serious', description:'Insufficient color contrast', rule_id:'color-contrast', wcag_criterion:'1.4.3 (AA)',
+      plain_english:'The "Summer Sale" banner uses light-gray text (#B8B8B8) on a white background — 2.1:1 contrast, below the 4.5:1 minimum.',
+      impact_statement:'Low-vision users and anyone in bright sunlight can\'t read the banner text.',
+      selector:'.promo-banner__title', ai_generated:false, code_fix:'Darken the text to at least #595959 on white (4.5:1), or add a solid-color backdrop.', estimated_time:'5 min', risk_level:'Low' },
+    { impact:'moderate', description:'Scrollable region not keyboard-focusable', rule_id:'scrollable-region-focusable', wcag_criterion:'2.1.1 (A)',
+      plain_english:'The product-reviews panel scrolls internally but has no tabindex, so keyboard users can\'t focus and scroll it.',
+      impact_statement:'Keyboard-only users can\'t read reviews below the visible area.',
+      selector:'.reviews', ai_generated:false, code_fix:'Add tabindex="0" to the scrollable container.', estimated_time:'2 min', risk_level:'Low' },
+  ],
+  evidence: [],
+  csv: 'rule_id,impact,selector,wcag_criterion,estimated_time\nimage-alt,critical,.carousel img,1.1.1 (A),5 min\nlabel,critical,input[name="newsletter_email"],1.3.1 / 4.1.2 (A),3 min\nbutton-name,serious,.wishlist-toggle,4.1.2 (A),2 min\ncolor-contrast,serious,.promo-banner__title,1.4.3 (AA),5 min\nscrollable-region-focusable,moderate,.reviews,2.1.1 (A),2 min\n',
+  trends: '<!doctype html><html><body style="font-family:sans-serif;padding:24px;color:#5B6B7B">Trends need the live backend (SQLite scan history). This demo has no stored history yet.</body></html>',
+  diff: { note:'Demo preview — connect the live backend for real release-over-release diffs.', new:5, resolved:1, persisting:2 },
+};
+function demoScanResult(url){
+  const clone = JSON.parse(JSON.stringify(DEMO_RESULT));
+  clone.summary.domain = domainOf(url);
+  clone.summary.page_url = url;
+  clone.violations.forEach(v => v.page_url = url);
+  return clone;
+}
+const DEMO_FIX = {
+  before:{ score:58, count:7 }, after:{ score:94, count:1 }, usedAI:true,
+  applied: [
+    { rule:'image-alt', ai:false, change:'Added alt="Store logo" to the header logo image.' },
+    { rule:'image-alt', ai:true, change:'Added alt="View cart" to the cart icon image (Claude-derived from link context).' },
+    { rule:'image-alt', ai:true, change:'Added alt="Summer Sale hero banner" to the hero image.' },
+    { rule:'input-image-alt', ai:false, change:'Added alt="Submit" to the image-type submit input.' },
+    { rule:'label', ai:true, change:'Added aria-label="Email address" to the newsletter input.' },
+    { rule:'button-name', ai:true, change:'Added aria-label="Add to wishlist" to the icon-only button.' },
+    { rule:'frame-title', ai:false, change:'Added title="Promotional video" to the iframe.' },
+  ],
+  skipped: [
+    { rule:'scrollable-region-focusable', impact:'moderate', help:'Reviews panel scrolls but needs tabindex="0" — flagged for manual review since it may conflict with existing keyboard handlers.' },
+    { rule:'html-has-lang', impact:'serious', help:'Root <html> element has no lang attribute — flagged since the page language wasn\'t confidently detected.' },
+  ],
+};
+function demoFixResult(html){ return Object.assign({}, DEMO_FIX, { fixedHtml: html }); }
+
+document.querySelectorAll('.ex-chip[data-url]').forEach(b=>b.addEventListener('click',()=>{ $('scanUrl').value=b.dataset.url; $('scanUrl').focus(); }));
+// Dogfooding: audit this very tool with its own engine
+$('selfScanChip').addEventListener('click',()=>{ $('scanUrl').value=location.origin; $('scanBtn').click(); });
+
+function download(name, content, type){
+  const blob = new Blob([content], {type});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function statColor(good){ return good ? 'var(--good)' : 'var(--bad)'; }
+
+/* ---------- Native rendering of the audit report & email digest ---------- */
+function sevClass(i){ return ['critical','serious','moderate','minor'].includes(i) ? i : 'minor'; }
+function violationCard(v){
+  const sc = sevClass(v.impact);
+  return `<article class="vcard ${sc}">
+    <div class="vcard-h">
+      <span class="vsev ${sc}">${esc(v.impact)}</span>
+      <h3 class="vcard-title">${esc(v.description||v.rule_id)}</h3>
+    </div>
+    <p class="vmeta">Rule <code>${esc(v.rule_id)}</code> · WCAG <code>${esc(v.wcag_criterion||'—')}</code>${v.page_url?` · ${esc(v.page_url)}`:''}</p>
+    <div class="vbody">
+      <div>
+        <p class="vlbl">What’s wrong</p><p class="vtext">${esc(v.plain_english||'—')}</p>
+        <p class="vlbl">Who’s affected</p><p class="vtext">${esc(v.impact_statement||'—')}</p>
+        <p class="vlbl">Affected element</p><code class="vsnippet">${esc(v.selector||'—')}</code>
+      </div>
+      <div class="vfix">
+        <p class="vfix-lbl">✦ ${v.ai_generated?'Claude AI':'Rule-based'} fix</p>
+        <p class="vtext">${esc(v.code_fix||'—')}</p>
+        <p class="vfix-meta">⏱ ${esc(v.estimated_time||'—')} · Risk: ${esc(v.risk_level||'—')}</p>
+      </div>
+    </div>
+  </article>`;
+}
+function reportPane(o){
+  const s = o.summary, vs = o.violations||[];
+  const head = `<div class="report-head">
+      <div class="sumline"><span>🆕 <b>${esc(s.new_count)}</b> new</span><span>✅ <b>${esc(s.resolved_count)}</b> resolved</span><span>🔁 <b>${esc(s.persisting_count)}</b> persisting</span></div>
+    </div>`;
+  if(!vs.length){
+    return head + (s.new_count>0
+      ? `<div class="clean-state"><div class="big" aria-hidden="true">📄</div><h3>${esc(s.new_count)} new issue${s.new_count===1?'':'s'}</h3><p>Per-issue details weren’t stored for this older scan — download the full report above.</p></div>`
+      : `<div class="clean-state"><div class="big" aria-hidden="true">🎉</div><h3>No new violations</h3><p>This scan introduced no new accessibility issues. Score ${esc(s.current_score)}/100.</p></div>`);
+  }
+  const crit = vs.filter(v=>v.impact==='critical').length;
+  const exec = `<div class="exec-summary"><p class="vlbl">✦ Executive summary</p><p>${esc(s.new_count)} new violation${s.new_count===1?'':'s'} introduced; score is ${esc(s.current_score)}/100 (${s.score_delta>=0?'+':''}${esc(s.score_delta)}). ${crit} critical — fix those first. ${esc(s.resolved_count)} previously-reported issue${s.resolved_count===1?'':'s'} resolved; ${esc(s.persisting_count)} still persisting.</p></div>`;
+  return head + `<div class="vlist">${vs.map(violationCard).join('')}</div>` + exec;
+}
+function digestPane(o){
+  const s = o.summary, vs = o.violations||[];
+  const top = vs.filter(v=>v.impact==='critical').slice(0,3);
+  const items = top.length
+    ? top.map(v=>`<div class="digest-item"><b>${esc(v.description||v.rule_id)}</b><span>${esc((v.code_fix||'').split('.')[0])}. — ${esc(v.estimated_time||'')}</span></div>`).join('')
+    : `<div class="digest-item"><span>No critical issues in this scan.</span></div>`;
+  return `<div class="digest">
+    <div class="digest-h">
+      <div class="k">Accessibility Monitor · Digest</div>
+      <div class="big">${esc(s.new_count)} new violation${s.new_count===1?'':'s'} on ${esc(s.domain)}</div>
+      <div class="sc">Compliance score: ${esc(s.current_score)}/100 (${s.score_delta>=0?'+':''}${esc(s.score_delta)})</div>
+    </div>
+    <div class="digest-b">
+      <p>This scan of <strong>${esc(s.domain)}</strong> found ${esc(s.new_count)} new accessibility issue${s.new_count===1?'':'s'}. Top priorities, with suggested fixes:</p>
+      ${items}
+      <p style="margin:12px 0 0">${esc(s.resolved_count)} issue${s.resolved_count===1?'':'s'} resolved since the last scan ✅. The full HTML report carries every fix.</p>
+    </div>
+  </div>`;
+}
+
+function render(o){
+  const s = o.summary;
+  const up = s.score_delta>=0;
+  const out = $('out');
+  out.innerHTML = `
+    ${s.warning ? `<div class="warn"><span>⚠</span><span>${esc(s.warning)}</span></div>` : ''}
+    <div class="stats">
+      <div class="stat" style="--accent:${statColor(s.current_score>=70)}"><div class="k">Score</div><div class="v">${s.current_score}<small>/100</small></div></div>
+      <div class="stat" style="--accent:${statColor(up)}"><div class="k">Δ vs last</div><div class="v" style="color:${statColor(up)}">${up?'▲':'▼'} ${up?'+':''}${s.score_delta}</div></div>
+      <div class="stat" style="--accent:var(--critical)"><div class="k">New</div><div class="v">${s.new_count}</div></div>
+      <div class="stat"><div class="k">Persisting</div><div class="v">${s.persisting_count}</div></div>
+      <div class="stat" style="--accent:var(--good)"><div class="k">Resolved</div><div class="v" style="color:var(--good)">${s.resolved_count}</div></div>
+      <div class="stat" style="--accent:var(--brand)"><div class="k">Claude calls</div><div class="v" style="color:var(--brand-ink)">${s.claude_calls}</div></div>
+    </div>
+    ${s.live ? `<p class="hint">${s.compared_to
+        ? `📈 <strong>Scan #${esc(s.scan_number)}</strong> of ${esc(s.domain)} — compared against your previous scan on <strong>${esc(s.compared_to)}</strong>. New/resolved/persisting are the real changes since then.`
+        : `🆕 <strong>First scan</strong> of ${esc(s.domain)} — this is the baseline. Re-scan later to track new vs resolved issues over time.`}${s.pages_scanned>1?` Crawled <strong>${esc(s.pages_scanned)} pages</strong>.`:''}${s.engine?` Scanned with <strong>${esc(s.engine)}</strong>.`:''}</p>`
+      : `<p class="hint">Diff engine sent <strong>${s.claude_calls}</strong> of ${s.new_count} new violations to Claude (saved ${s.saved_calls} call${s.saved_calls===1?'':'s'} — only NEW critical/serious qualify). Scan <code>${s.scan_id}</code>.</p>`}
+    <div class="tabs" role="tablist" aria-label="Report views">
+      <button type="button" role="tab" id="tab-report" aria-controls="pane-report" aria-selected="true" tabindex="0" class="tab active" data-pane="report">Audit report</button>
+      ${(o.evidence&&o.evidence.length)?`<button type="button" role="tab" id="tab-evidence" aria-controls="pane-evidence" aria-selected="false" tabindex="-1" class="tab" data-pane="evidence">📸 Evidence (${o.evidence.length})</button>`:''}
+      <button type="button" role="tab" id="tab-email" aria-controls="pane-email" aria-selected="false" tabindex="-1" class="tab" data-pane="email">Email digest</button>
+      <button type="button" role="tab" id="tab-trends" aria-controls="pane-trends" aria-selected="false" tabindex="-1" class="tab" data-pane="trends">Trends</button>
+      <button type="button" role="tab" id="tab-csv" aria-controls="pane-csv" aria-selected="false" tabindex="-1" class="tab" data-pane="csv">CSV</button>
+      <button type="button" role="tab" id="tab-diff" aria-controls="pane-diff" aria-selected="false" tabindex="-1" class="tab" data-pane="diff">Diff JSON</button>
+    </div>
+    <div class="tabpane active" role="tabpanel" id="pane-report" aria-labelledby="tab-report" tabindex="0" data-pane="report">
+      ${reportPane(o)}
+    </div>
+    ${(o.evidence&&o.evidence.length)?`<div class="tabpane" role="tabpanel" id="pane-evidence" aria-labelledby="tab-evidence" tabindex="0" data-pane="evidence">
+      <p class="hint">Screenshots of the worst offending elements, each highlighted in red — captured live during the scan.</p>
+      <div class="evidence-grid">${o.evidence.map(e=>`
+        <figure class="ev">
+          <img src="${e.screenshot}" alt="Highlighted ${e.rule_id} violation" loading="lazy">
+          <figcaption><span class="ev-sev ev-${e.impact}">${e.impact}</span> <code>${e.rule_id}</code><span class="ev-sel">${(e.selector||'').replace(/</g,'&lt;')}</span></figcaption>
+        </figure>`).join('')}</div>
+    </div>`:''}
+    <div class="tabpane" role="tabpanel" id="pane-email" aria-labelledby="tab-email" tabindex="0" data-pane="email">
+      <div class="sendbox">
+        <label for="sendTo">✉ Send this report to the person checking it</label>
+        <div class="send-row">
+          <input id="sendTo" type="email" placeholder="name@company.com" value="${esc(window.__userEmail||'')}">
+          <button type="button" class="btn btn-primary" id="sendBtn">Send digest</button>
+        </div>
+        <div id="sendStatus" style="font-size:12px;margin-top:9px;"></div>
+        <p class="hint" style="margin:8px 0 0;">Hands the report to the macOS Mail app (whatever account it’s signed into) with the full HTML report attached, then sends.</p>
+      </div>
+      ${digestPane(o)}
+    </div>
+    <div class="tabpane" role="tabpanel" id="pane-trends" aria-labelledby="tab-trends" tabindex="0" data-pane="trends">
+      <div class="frame">
+        <div class="frame-bar"><span class="dots"><i></i><i></i><i></i></span><span class="fname">compliance_trends_dashboard.html</span></div>
+        <iframe id="ifTrends" title="Trends dashboard"></iframe>
+      </div>
+    </div>
+    <div class="tabpane" role="tabpanel" id="pane-csv" aria-labelledby="tab-csv" tabindex="0" data-pane="csv">
+      <div style="margin-bottom:10px"><button type="button" class="dl" id="dlCsv">⤓ Download .csv</button></div>
+      <pre>${o.csv.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</pre>
+    </div>
+    <div class="tabpane" role="tabpanel" id="pane-diff" aria-labelledby="tab-diff" tabindex="0" data-pane="diff"><pre>${JSON.stringify(o.diff,null,2).replace(/&/g,'&amp;').replace(/</g,'&lt;')}</pre></div>
+  `;
+  $('ifTrends').srcdoc = o.trends;
+  const tabs = [...out.querySelectorAll('.tab')];
+  function selectTab(t, focus){
+    tabs.forEach(x=>{ x.classList.remove('active'); x.setAttribute('aria-selected','false'); x.tabIndex=-1; });
+    out.querySelectorAll('.tabpane').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active'); t.setAttribute('aria-selected','true'); t.tabIndex=0;
+    out.querySelector(`.tabpane[data-pane="${t.dataset.pane}"]`).classList.add('active');
+    if(focus) t.focus();
+  }
+  tabs.forEach((t,i)=>{
+    t.addEventListener('click',()=>selectTab(t));
+    t.addEventListener('keydown',e=>{
+      const last = tabs.length-1;
+      let n = -1;
+      if(e.key==='ArrowRight'||e.key==='ArrowDown') n = i===last?0:i+1;
+      else if(e.key==='ArrowLeft'||e.key==='ArrowUp') n = i===0?last:i-1;
+      else if(e.key==='Home') n = 0;
+      else if(e.key==='End') n = last;
+      if(n>=0){ e.preventDefault(); selectTab(tabs[n], true); }
+    });
+  });
+  $('dlCsv').onclick    = ()=>download(`violations_${s.domain}_${s.scan_date}.csv`, o.csv, 'text/csv');
+  $('sendBtn').onclick  = sendDigest;
+  // move keyboard focus to the results so SR/keyboard users land on the new content
+  const heading = $('results-title');
+  if(heading) heading.focus({preventScroll:true});
+}
+
+function showError(msg){ $('out').innerHTML = `<div class="err"><span>⚠</span><span>${msg}</span></div>`; }
+function handleResult(o){
+  if(o.error){ showError(o.error); }
+  else { window.__last = o; render(o); loadHistory(); }
+}
+
+/* ---------- History (backed by SQLite via /api/scans) ---------- */
+// AA-compliant fills: white text on each is ≥4.5:1 (the .score badge is 15px, not "large text")
+function scoreColor(n){ return n>=85?'#157F54':n>=60?'#9A640D':'#C73E26'; }
+function timeAgo(iso){
+  const d = new Date(iso.replace(' ','T')+'Z'); const sec=(Date.now()-d.getTime())/1000;
+  if(sec<60) return 'just now'; if(sec<3600) return Math.floor(sec/60)+'m ago';
+  if(sec<86400) return Math.floor(sec/3600)+'h ago'; return Math.floor(sec/86400)+'d ago';
+}
+function loadHistory(){
+  fetch('/api/scans').then(r=>r.json()).then(rows=>{
+    const el = $('history');
+    if(!rows.length){ el.innerHTML = '<div class="hist-empty">No saved scans yet — your scans will appear here.</div>'; return; }
+    el.innerHTML = rows.map(r=>`
+      <div class="hist" data-id="${r.id}">
+        <div class="score" style="background:${scoreColor(r.current_score)}">${esc(r.current_score)}</div>
+        <div class="meta">
+          <div class="dom">${esc(r.domain)} <span class="src ${esc(r.source)}">${esc(r.source)}</span></div>
+          <div class="det">${esc(r.new_count)} new · ${esc(r.resolved_count)} resolved · ${esc(r.claude_calls)} Claude · ${timeAgo(r.created_at)}</div>
+        </div>
+        <button type="button" class="del" data-del="${r.id}" title="Delete" aria-label="Delete scan of ${esc(r.domain)}">🗑</button>
+      </div>`).join('');
+    el.querySelectorAll('.hist').forEach(h=>h.addEventListener('click', e=>{
+      if(e.target.closest('.del')) return;
+      openSaved(h.dataset.id);
+    }));
+    el.querySelectorAll('.del').forEach(b=>b.addEventListener('click', e=>{
+      e.stopPropagation();
+      fetch('/api/scans/'+b.dataset.del,{method:'DELETE'}).then(()=>loadHistory());
+    }));
+  }).catch(()=>{});
+}
+function openSaved(id){
+  fetch('/api/scans/'+id).then(r=>r.json()).then(o=>{
+    if(o.error){ showError(o.error); return; }
+    window.__last = o; render(o);
+    document.getElementById('results-title').scrollIntoView({behavior:'smooth',block:'start'});
+  });
+}
+
+$('scanBtn').addEventListener('click',()=>{
+  const url = $('scanUrl').value.trim();
+  if(!url){ $('scanUrl').focus(); return; }
+  const maxPages = parseInt($('maxPages').value,10)||1;
+  const btn = $('scanBtn'); btn.textContent='Scanning…'; btn.disabled=true;
+  $('out').innerHTML = `<div class="empty"><div class="spinner"></div><h3>Auditing the live ${maxPages>1?`site (up to ${maxPages} pages)`:'page'}…</h3><p>Launching headless Chrome and running axe-core against <strong>${url}</strong>${maxPages>1?', crawling same-origin links':''}. This can take ${maxPages>1?'30–90s':'10–30s'}.</p></div>`;
+  document.getElementById('results-title').scrollIntoView({behavior:'smooth',block:'start'});
+  (ON_FILE_PROTOCOL ? Promise.reject(new Error('file-protocol')) :
+    fetch('/scan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url,maxPages})})
+      .then(r=>{ if(!r.ok) throw new Error('backend-unavailable'); return r.json(); }))
+    .then(handleResult)
+    .catch(()=>handleResult(demoScanResult(url)))
+    .finally(()=>{ btn.textContent='Scan'; btn.disabled=false; });
+});
+$('scanUrl').addEventListener('keydown',e=>{ if(e.key==='Enter') $('scanBtn').click(); });
+
+function sendDigest(){
+  const o = window.__last; if(!o) return;
+  const to = $('sendTo').value.trim();
+  const statusEl = $('sendStatus');
+  if(!to){ statusEl.innerHTML='<span style="color:var(--bad)">Enter a recipient email.</span>'; return; }
+  const s = o.summary;
+  const bodyText =
+`Accessibility digest — ${s.domain} (${s.scan_date})
+
+Compliance score: ${s.current_score}/100${s.live?' (baseline)':` (${s.score_delta>=0?'+':''}${s.score_delta} vs last week)`}
+New: ${s.new_count} · Persisting: ${s.persisting_count} · Resolved: ${s.resolved_count}
+Claude AI fix suggestions: ${s.claude_calls}
+${s.page_url?`Scanned page: ${s.page_url}\n`:''}
+The full HTML audit report is attached — open it in a browser to see every violation and its fix.
+
+— Accessibility Monitor v2`;
+  const btn = $('sendBtn'); btn.textContent='Sending…'; btn.disabled=true;
+  statusEl.textContent='';
+  const subject = `Accessibility report — ${s.domain} (${s.scan_date}) — ${s.current_score}/100`;
+  const mailtoFallback = ()=>{
+    statusEl.innerHTML = `<span style="color:var(--faint)">Live digest delivery needs the backend — opening your mail app instead…</span>`;
+    window.location.href = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`;
+  };
+  (ON_FILE_PROTOCOL ? Promise.reject(new Error('file-protocol')) :
+    fetch('/send',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ to, subject, bodyText, html:o.report, domain:s.domain, scanDate:s.scan_date })})
+      .then(r=>{ if(!r.ok) throw new Error('backend-unavailable'); return r.json(); }))
+    .then(res=>{ if(res.error){ mailtoFallback(); return; } statusEl.innerHTML = `<span style="color:var(--good);font-weight:600">✓ Composed &amp; sent to ${res.to} via ${res.via}. Check Mail.app.</span>`; })
+    .catch(mailtoFallback)
+    .finally(()=>{ btn.textContent='Send digest'; btn.disabled=false; });
+}
+
+// DB-backed dashboards → render the returned HTML in the Results panel
+function openDashboard(endpoint, fname, title){
+  (ON_FILE_PROTOCOL ? Promise.reject(new Error('file-protocol')) :
+    fetch(endpoint).then(r=>{ if(!r.ok) throw new Error('backend-unavailable'); return r.text(); }))
+    .then(html=>{
+      $('out').innerHTML = `<div class="frame"><div class="frame-bar"><span class="dots"><i></i><i></i><i></i></span><span class="fname">${fname}</span></div><iframe title="${title}" style="height:620px"></iframe></div>`;
+      $('out').querySelector('iframe').srcdoc = html;
+      document.getElementById('results-title').scrollIntoView({behavior:'smooth',block:'start'});
+    })
+    .catch(()=>{
+      $('out').innerHTML = `<div class="warn"><span>⚠</span><span>${title} needs the live backend (stored scan history in SQLite). Run a scan above to see the report view, or connect the backend for full analytics.</span></div>`;
+      document.getElementById('results-title').scrollIntoView({behavior:'smooth',block:'start'});
+    });
+}
+$('trendsBtn').addEventListener('click',()=>openDashboard('/api/trends','compliance_trends_dashboard.html · all stored scans','Trends'));
+$('analyticsBtn').addEventListener('click',()=>openDashboard('/api/analytics','analytics_dashboard.html · all stored scans','Analytics'));
+
+// ---------- Monitoring (watch list) ----------
+function loadWatches(){
+  fetch('/api/watches').then(r=>r.json()).then(rows=>{
+    const el = $('watches'); if(!el) return;
+    if(!rows.length){ el.innerHTML=''; return; }
+    el.innerHTML = rows.map(w=>{
+      const st = (w.last_status||'not run yet');
+      const cls = /regress|error|alert/.test(st)?'reg':(/stable|baseline/.test(st)?'ok':'');
+      const every = w.interval_min>=1440?'daily':(w.interval_min>=60?'hourly':`${w.interval_min}m`);
+      return `<div class="watch" data-id="${w.id}">
+        <div class="wmeta">
+          <div class="wurl">${esc(w.url)}</div>
+          <div class="wdet">${every}${w.email?` → ${esc(w.email)}`:' · no email'} · ${esc(st)}</div>
+        </div>
+        <span class="wstatus ${cls}">${esc(st.split(' ')[0]||'pending')}</span>
+        <button type="button" class="del" data-del="${w.id}" title="Stop watching" aria-label="Stop watching ${esc(w.url)}">🗑</button>
+      </div>`;
+    }).join('');
+    el.querySelectorAll('.del').forEach(b=>b.addEventListener('click',()=>{
+      fetch('/api/watches/'+b.dataset.del,{method:'DELETE'}).then(()=>loadWatches());
+    }));
+  }).catch(()=>{});
+}
+$('watchBtn').addEventListener('click',()=>{
+  const url=$('watchUrl').value.trim(); if(!url){$('watchUrl').focus();return;}
+  const body={ url, email:$('watchEmail').value.trim()||window.__userEmail, intervalMin:parseInt($('watchEvery').value,10)||60, maxPages:parseInt($('maxPages').value,10)||1 };
+  const btn=$('watchBtn'); btn.disabled=true; btn.textContent='Adding…';
+  fetch('/api/watches',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+    .then(r=>r.json()).then(()=>{ $('watchUrl').value=''; loadWatches(); })
+    .finally(()=>{ btn.disabled=false; btn.textContent='＋ Watch'; });
+});
+
+// convenience: prefill the recipient with the person running this
+window.__userEmail = 'singh.kanish@northeastern.edu';
+
+/* ---------- Auto-fix (beta) ---------- */
+const FIX_SAMPLE = `<html>
+<head><meta charset="utf-8"></head>
+<body data-title="Acme Store — Demo">
+  <a href="/"><img src="logo.svg"></a>
+  <a href="/products/running-shoes"><img src="cart.svg"></a>
+  <h1>Summer Sale</h1>
+  <img src="hero-banner.jpg">
+  <button class="wishlist-toggle"><svg viewBox="0 0 24 24"><path d="M12 21l-1-1"/></svg></button>
+  <form>
+    <input type="email" placeholder="Enter your email" name="newsletter_email">
+    <input type="image" src="go.svg">
+  </form>
+  <div class="reviews" style="height:120px;overflow-y:auto"><p>Review…</p><p style="height:400px">long</p></div>
+  <iframe src="about:blank" name="promo-video"></iframe>
+</body>
+</html>`;
+$('fixDemoBtn').addEventListener('click',()=>{ $('fixInput').value=FIX_SAMPLE; $('fixInput').focus(); });
+
+function renderFix(o){
+  const up = o.after.score - o.before.score;
+  const fixed = o.before.count - o.after.count;
+  const rows = a=>a.map(x=>`<li><b style="color:var(--brand-ink)">${esc(x.rule)}</b>${x.ai?' <span style="color:var(--good);font-weight:700">✦ Claude</span>':''} — ${esc(x.change)}</li>`).join('');
+  const skips = o.skipped.map(x=>`<li><b style="color:var(--serious)">${esc(x.rule)}</b> <span class="try-lbl">[${esc(x.impact)}]</span> — ${esc(x.help)}</li>`).join('');
+  $('fixOut').innerHTML = `
+    <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:baseline;padding:14px 16px;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-sm);">
+      <div><span class="try-lbl">SCORE</span> <b style="font-size:22px">${o.before.score}</b> <span style="color:var(--faint)">→</span> <b style="font-size:22px;color:var(--good)">${o.after.score}</b> <span style="color:var(--good);font-weight:700">▲ +${up}</span></div>
+      <div><span class="try-lbl">VIOLATIONS</span> <b>${o.before.count}</b> → <b>${o.after.count}</b> <span style="color:var(--good);font-weight:700">(${fixed} fixed)</span></div>
+      <div><span class="try-lbl">LABELS</span> <b>${o.usedAI?'Claude ✦':'derived'}</b></div>
+    </div>
+    ${o.applied.length?`<h4 style="margin:16px 0 6px;font-family:'Space Grotesk'">✅ Applied automatically</h4><ul style="margin:0;padding-left:18px;line-height:1.7;font-size:13px">${rows(o.applied)}</ul>`:''}
+    ${o.skipped.length?`<h4 style="margin:16px 0 6px;font-family:'Space Grotesk'">⚠️ Left for human review</h4><ul style="margin:0;padding-left:18px;line-height:1.7;font-size:13px">${skips}</ul>`:''}
+    <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">
+      <button type="button" class="btn btn-ghost" id="fixDl">⬇ Download fixed HTML</button>
+      <button type="button" class="btn btn-ghost" id="fixCopy">📋 Copy fixed HTML</button>
+    </div>`;
+  $('fixDl').addEventListener('click',()=>download('fixed.html', o.fixedHtml, 'text/html'));
+  $('fixCopy').addEventListener('click',()=>navigator.clipboard.writeText(o.fixedHtml));
+}
+$('fixBtn').addEventListener('click',()=>{
+  const html=$('fixInput').value.trim();
+  if(!html){ $('fixInput').focus(); return; }
+  const btn=$('fixBtn'); btn.disabled=true; btn.textContent='Fixing…';
+  $('fixOut').innerHTML='<div class="try-lbl">Scanning, applying fixes, and re-scanning…</div>';
+  (ON_FILE_PROTOCOL ? Promise.reject(new Error('file-protocol')) :
+    fetch('/fix',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({html})})
+      .then(r=>{ if(!r.ok) throw new Error('backend-unavailable'); return r.json(); }))
+    .then(o=>{ if(o.error){ $('fixOut').innerHTML='<div class="err"><span>⚠</span><span>'+esc(o.error)+'</span></div>'; } else { renderFix(o); $('fixAi').textContent = o.aiAvailable?'':'Tip: set ANTHROPIC_API_KEY for Claude-written labels'; } })
+    .catch(()=>{ renderFix(demoFixResult(html)); $('fixAi').innerHTML='<span style="color:var(--brand-ink)">Demo preview — connect the live backend for real Claude-written fixes.</span>'; })
+    .finally(()=>{ btn.disabled=false; btn.textContent='🔧 Fix & re-scan'; });
+});
+
+// boot
+loadHistory();
+loadWatches();
+setInterval(loadWatches, 30000); // reflect monitor runs as they happen
+</script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+{
+  "name": "accessibility-monitor-v2",
+  "version": "2.0.0",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test test/*.test.js",
+    "gallery": "node generate_outputs.js",
+    "scale": "node scale_test_50.js"
+  },
+  "keywords": ["accessibility", "wcag", "axe-core", "a11y", "monitor"],
+  "author": "Kanishk Singh",
+  "license": "ISC",
+  "description": "Full-stack accessibility monitor: live axe-core auditing, crawl, screenshots, time-series diffing, SQLite persistence, analytics, scheduled monitoring, and email alerts.",
+  "dependencies": {
+    "axe-core": "^4.12.0",
+    "better-sqlite3": "^12.10.0",
+    "puppeteer-core": "^23.11.1"
+  }
+}

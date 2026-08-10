@@ -1,0 +1,39 @@
+<html>
+<head>
+  <meta charset="utf-8">
+</head>
+<body data-title="Acme Store — Demo Page">
+  <header>
+    <a href="/"><img src="logo.svg"></a>
+    <nav>
+      <a href="/products/running-shoes"><img src="cart.svg"></a>
+      <a href="/account/kanishk-singh">👤</a>
+    </nav>
+  </header>
+
+  <main>
+    <h1>Summer Sale</h1>
+
+    <!-- image with no alt -->
+    <img src="hero-banner.jpg">
+
+    <!-- icon-only button with no accessible name -->
+    <button class="wishlist-toggle"><svg viewBox="0 0 24 24"><path d="M12 21l-1-1"/></svg></button>
+
+    <!-- form field with no label -->
+    <form>
+      <input type="email" placeholder="Enter your email" name="newsletter_email">
+      <input type="image" src="go.svg">
+    </form>
+
+    <!-- scrollable region not keyboard-focusable -->
+    <div class="reviews" style="height:120px;overflow-y:auto">
+      <p>Review 1 …</p><p>Review 2 …</p><p>Review 3 …</p>
+      <p style="height:400px">(long content to force a scrollbar)</p>
+    </div>
+
+    <!-- embedded frame with no title -->
+    <iframe src="about:blank" name="promo-video"></iframe>
+  </main>
+</body>
+</html>

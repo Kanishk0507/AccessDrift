@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Accessibility Audit Report — example.com — 2026-05-23</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --critical: #E55A3C; --critical-bg: #FDEAE5;
+    --serious: #E8920A; --serious-bg: #FEF3DC;
+    --moderate: #6B5CE7; --moderate-bg: #EEE9FF;
+    --minor: #0EA5A0; --minor-bg: #D4F7F5;
+    --green: #22A06B; --green-bg: #D3F5E8;
+    --text: #1A1A1A; --text-2: #555; --text-3: #888;
+    --border: rgba(0,0,0,0.09);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: #F7F6F3; color: var(--text); padding: 0; }
+
+  /* ── Header ── */
+  .report-header { background: linear-gradient(135deg, #1A1A2E 0%, #2A1A4A 100%); padding: 40px 48px 36px; }
+  .rh-badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2); border-radius: 20px; padding: 5px 14px; font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #CDD6F4; margin-bottom: 18px; }
+  .rh-title { font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800; color: #fff; letter-spacing: -0.02em; margin-bottom: 6px; }
+  .rh-sub { font-size: 14px; color: rgba(255,255,255,0.6); margin-bottom: 28px; }
+  .rh-meta { display: flex; flex-wrap: wrap; gap: 24px; }
+  .rh-meta-item { display: flex; flex-direction: column; gap: 3px; }
+  .rh-meta-label { font-family: 'Syne', sans-serif; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255,255,255,0.45); }
+  .rh-meta-value { font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.9); }
+
+  /* ── Score bar ── */
+  .score-bar { background: #fff; border-bottom: 1px solid var(--border); padding: 24px 48px; display: flex; align-items: center; gap: 32px; flex-wrap: wrap; }
+  .score-circle { width: 72px; height: 72px; border-radius: 50%; border: 4px solid var(--serious); display: flex; flex-direction: column; align-items: center; justify-content: center; flex-shrink: 0; }
+  .score-num { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800; color: var(--serious); line-height: 1; }
+  .score-label { font-size: 9px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.05em; }
+  .score-desc { flex: 1; }
+  .score-desc h2 { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 800; color: var(--text); margin-bottom: 4px; }
+  .score-desc p { font-size: 13px; color: var(--text-2); line-height: 1.6; }
+  .score-chips { display: flex; gap: 10px; flex-wrap: wrap; margin-left: auto; }
+  .sev-chip { display: flex; flex-direction: column; align-items: center; padding: 8px 16px; border-radius: 12px; }
+  .sev-num { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 800; line-height: 1; }
+  .sev-label { font-size: 10px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 3px; }
+
+  /* ── Body layout ── */
+  .report-body { max-width: 960px; margin: 0 auto; padding: 32px 24px; }
+  .section-title { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-3); margin-bottom: 16px; margin-top: 32px; padding-bottom: 8px; border-bottom: 2px solid #EEEBE4; }
+  
+  /* ── AI summary box ── */
+  .ai-summary { background: linear-gradient(135deg, #EEE9FF 0%, #D4F7F5 100%); border-radius: 16px; padding: 24px; margin-bottom: 8px; }
+  .ai-label { font-family: 'Syne', sans-serif; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #6B5CE7; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+  .ai-summary p { font-size: 14px; color: #1A1A1A; line-height: 1.7; }
+  .ai-summary ul { padding-left: 18px; margin-top: 10px; }
+  .ai-summary li { font-size: 13px; color: #333; line-height: 1.65; margin-bottom: 5px; }
+
+  /* ── Violation card ── */
+  .v-card { background: #fff; border: 1.5px solid var(--border); border-radius: 16px; margin-bottom: 14px; overflow: hidden; }
+  .v-header { padding: 14px 20px; display: flex; align-items: flex-start; gap: 14px; border-bottom: 1px solid var(--border); }
+  .v-sev { display: inline-flex; align-items: center; font-family: 'Syne', sans-serif; font-size: 10px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; padding: 3px 10px; border-radius: 20px; flex-shrink: 0; margin-top: 2px; }
+  .v-sev.critical { background: var(--critical-bg); color: var(--critical); }
+  .v-sev.serious  { background: var(--serious-bg);  color: var(--serious); }
+  .v-sev.moderate { background: var(--moderate-bg); color: var(--moderate); }
+  .v-sev.minor    { background: var(--minor-bg);    color: var(--minor); }
+  .v-title { font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 800; color: var(--text); margin-bottom: 3px; }
+  .v-meta { font-size: 12px; color: var(--text-3); }
+  .v-meta code { background: #F0EDE6; padding: 1px 5px; border-radius: 4px; font-size: 11px; }
+  .v-new-badge { display: inline-flex; align-items: center; gap: 4px; background: #FDEAE5; color: var(--critical); font-family: 'Syne', sans-serif; font-size: 9px; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; padding: 2px 8px; border-radius: 10px; margin-left: 8px; }
+  .v-body { padding: 16px 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .v-section-label { font-family: 'Syne', sans-serif; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-3); margin-bottom: 6px; }
+  .v-body p, .v-body li { font-size: 13px; color: var(--text-2); line-height: 1.65; }
+  .v-body ul { padding-left: 16px; }
+  .v-body li { margin-bottom: 4px; }
+  .v-ai-box { background: #F7F6F3; border-radius: 10px; padding: 12px 14px; }
+  .v-ai-label { font-family: 'Syne', sans-serif; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #6B5CE7; margin-bottom: 6px; display: flex; align-items: center; gap: 4px; }
+  .code-block { background: #1E1E2E; border-radius: 10px; padding: 12px 14px; font-family: monospace; font-size: 12px; color: #CDD6F4; line-height: 1.7; overflow-x: auto; margin-top: 8px; }
+  .code-old { color: #F38BA8; } .code-old::before { content: '- '; }
+  .code-new { color: #A6E3A1; } .code-new::before { content: '+ '; }
+  .code-ctx { color: #6C7086; }
+  .v-footer { padding: 10px 20px; background: #FAFAF8; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .v-tag { font-size: 11px; font-weight: 500; padding: 3px 10px; border-radius: 10px; background: #EEEBE4; color: var(--text-2); }
+  .v-wcag { font-size: 11px; font-weight: 600; color: var(--moderate); background: var(--moderate-bg); padding: 3px 10px; border-radius: 10px; }
+  .v-page { font-size: 11px; color: var(--text-3); margin-left: auto; }
+
+  /* ── Summary tables ── */
+  .sum-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .sum-table th { font-family: 'Syne', sans-serif; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-3); padding: 8px 14px; text-align: left; border-bottom: 2px solid #EEEBE4; }
+  .sum-table td { padding: 10px 14px; border-bottom: 1px solid #F0EDE6; color: var(--text-2); vertical-align: top; }
+  .sum-table tr:last-child td { border-bottom: none; }
+  .sum-table tr:hover td { background: #FAFAF8; }
+  .bar-wrap { width: 100px; height: 7px; background: #EEEBE4; border-radius: 4px; display: inline-block; vertical-align: middle; margin-right: 8px; }
+  .bar-fill { height: 100%; border-radius: 4px; background: var(--critical); }
+  .trend-up { color: var(--critical); font-weight: 700; }
+  .trend-dn { color: var(--green); font-weight: 700; }
+
+  /* ── Footer ── */
+  .report-footer { background: #1A1A2E; padding: 24px 48px; margin-top: 40px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+  .rf-text { font-size: 12px; color: rgba(255,255,255,0.5); }
+  .rf-badge { font-family: 'Syne', sans-serif; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #CBA6F7; background: rgba(107,92,231,0.2); padding: 4px 12px; border-radius: 10px; }
+
+  @media (max-width: 640px) {
+    .report-header, .score-bar, .report-footer { padding: 24px 20px; }
+    .v-body { grid-template-columns: 1fr; }
+    .score-chips { margin-left: 0; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── Report Header ── -->
+<div class="report-header">
+  <div class="rh-badge">🤖 AI-Generated by Accessibility Monitor · Madison Agent</div>
+  <div class="rh-title">Accessibility Audit Report</div>
+  <div class="rh-sub">Automated WCAG 2.1 A/AA compliance scan · Powered by axe-core 4.10 + Claude claude-sonnet-4-6</div>
+  <div class="rh-meta">
+    <div class="rh-meta-item"><span class="rh-meta-label">Domain</span><span class="rh-meta-value">example.com</span></div>
+    <div class="rh-meta-item"><span class="rh-meta-label">Scan Date</span><span class="rh-meta-value">2026-05-23</span></div>
+    <div class="rh-meta-item"><span class="rh-meta-label">Pages Crawled</span><span class="rh-meta-value">12 pages</span></div>
+    <div class="rh-meta-item"><span class="rh-meta-label">Scan ID</span><span class="rh-meta-value">scan_20260523_001</span></div>
+    <div class="rh-meta-item"><span class="rh-meta-label">Previous Scan</span><span class="rh-meta-value">2026-05-16</span></div>
+    <div class="rh-meta-item"><span class="rh-meta-label">Diff Window</span><span class="rh-meta-value">7 days</span></div>
+  </div>
+</div>
+
+<!-- ── Score Bar ── -->
+<div class="score-bar">
+  <div class="score-circle">
+    <div class="score-num">62</div>
+    <div class="score-label">/100</div>
+  </div>
+  <div class="score-desc">
+    <h2>Needs Improvement — 7 new violations since last scan</h2>
+    <p>Score dropped 8 points from last week (70 → 62). 3 critical violations introduced on the new pricing page require immediate attention. 4 pre-existing issues are in your backlog.</p>
+  </div>
+  <div class="score-chips">
+    <div class="sev-chip" style="background:var(--critical-bg);"><span class="sev-num" style="color:var(--critical);">3</span><span class="sev-label" style="color:var(--critical);">Critical</span></div>
+    <div class="sev-chip" style="background:var(--serious-bg);"><span class="sev-num" style="color:var(--serious);">2</span><span class="sev-label" style="color:var(--serious);">Serious</span></div>
+    <div class="sev-chip" style="background:var(--moderate-bg);"><span class="sev-num" style="color:var(--moderate);">1</span><span class="sev-label" style="color:var(--moderate);">Moderate</span></div>
+    <div class="sev-chip" style="background:var(--minor-bg);"><span class="sev-num" style="color:var(--minor);">1</span><span class="sev-label" style="color:var(--minor);">Minor</span></div>
+  </div>
+</div>
+
+<!-- ── Body ── -->
+<div class="report-body">
+
+  <!-- AI Executive Summary -->
+  <div class="section-title">🤖 AI Executive Summary — Generated by Claude claude-sonnet-4-6</div>
+  <div class="ai-summary">
+    <div class="ai-label">✦ Claude AI Analysis</div>
+    <p>This week's scan identified <strong>7 new WCAG 2.1 violations</strong> across 12 pages of example.com. The most concerning finding is a pattern of <strong>missing alternative text on images in the new pricing page</strong> — a single component change introduced 3 critical violations simultaneously, suggesting the image upload component lacks alt-text enforcement at the authoring level, not just the code level.</p>
+    <ul>
+      <li><strong>Root cause pattern:</strong> 4 of 7 violations trace to a single new React component (<code>&lt;PricingCard&gt;</code>) deployed on 2026-05-20. Fixing this component fixes 57% of this week's regressions.</li>
+      <li><strong>Legal risk:</strong> The 3 critical image-alt violations on the /pricing page affect a revenue-generating page. Under ADA Title III, inaccessible purchase flows have the highest litigation exposure.</li>
+      <li><strong>Estimated fix time:</strong> ~45 minutes for a developer familiar with the codebase. All 7 violations have specific code fixes generated below.</li>
+      <li><strong>Industry context:</strong> Per the WebAIM Million 2025 report, missing alt text affects 55% of all homepages — this is the #2 most common WCAG failure globally.</li>
+    </ul>
+  </div>
+
+  <!-- New violations -->
+  <div class="section-title">🆕 New This Week — 7 Violations (Not Present in Previous Scan)</div>
+
+  <!-- Violation 1 -->
+  <div class="v-card">
+    <div class="v-header">
+      <span class="v-sev critical">Critical</span>
+      <div>
+        <div class="v-title">Images must have alternate text <span class="v-new-badge">● NEW</span></div>
+        <div class="v-meta">Rule: <code>image-alt</code> · WCAG <code>1.1.1</code> · 3 elements affected · Page: /pricing</div>
+      </div>
+    </div>
+    <div class="v-body">
+      <div>
+        <div class="v-section-label">What's wrong</div>
+        <p>Three <code>&lt;img&gt;</code> elements inside the new <code>&lt;PricingCard&gt;</code> component have no <code>alt</code> attribute. Screen reader users hear "image" three times with no context about what the images depict (plan icons for Starter, Pro, and Enterprise tiers).</p>
+        <div class="v-section-label" style="margin-top:12px;">Affected selectors</div>
+        <p><code>.pricing-card:nth-child(1) img</code><br>
+        <code>.pricing-card:nth-child(2) img</code><br>
+        <code>.pricing-card:nth-child(3) img</code></p>
+      </div>
+      <div>
+        <div class="v-ai-box">
+          <div class="v-ai-label">✦ Claude Fix Suggestion</div>
+          <p style="font-size:12px;color:#555;line-height:1.6;">Add descriptive <code>alt</code> text to each pricing tier image. Use the tier name as the alt value — these are informational images, not decorative.</p>
+          <div class="code-block">
+<span class="code-ctx">&lt;!-- In PricingCard.jsx --&gt;</span>
+<span class="code-old">&lt;img src={plan.icon} /&gt;</span>
+<span class="code-new">&lt;img src={plan.icon} alt={`${plan.name} plan icon`} /&gt;</span>
+          </div>
+          <p style="font-size:11px;color:#888;margin-top:8px;">⏱ Estimated fix: 5 min · Risk: Low (no layout change)</p>
+        </div>
+      </div>
+    </div>
+    <div class="v-footer">
+      <span class="v-wcag">WCAG 1.1.1</span>
+      <span class="v-tag">cat.text-alternatives</span>
+      <span class="v-tag">axe-core 4.10</span>
+      <span class="v-page">📄 /pricing · First seen: 2026-05-23</span>
+    </div>
+  </div>
+
+  <!-- Violation 2 -->
+  <div class="v-card">
+    <div class="v-header">
+      <span class="v-sev critical">Critical</span>
+      <div>
+        <div class="v-title">Form elements must have labels <span class="v-new-badge">● NEW</span></div>
+        <div class="v-meta">Rule: <code>label</code> · WCAG <code>1.3.1</code> · 1 element affected · Page: /contact</div>
+      </div>
+    </div>
+    <div class="v-body">
+      <div>
+        <div class="v-section-label">What's wrong</div>
+        <p>The new newsletter signup input field on the /contact page has no associated <code>&lt;label&gt;</code> element and no <code>aria-label</code> attribute. Screen reader users cannot determine what information the field expects.</p>
+        <div class="v-section-label" style="margin-top:12px;">Affected selector</div>
+        <p><code>#newsletter-email-input</code></p>
+      </div>
+      <div>
+        <div class="v-ai-box">
+          <div class="v-ai-label">✦ Claude Fix Suggestion</div>
+          <p style="font-size:12px;color:#555;line-height:1.6;">Add a visible label or an <code>aria-label</code> attribute. Using a visible label is preferred — it helps all users, not just screen reader users.</p>
+          <div class="code-block">
+<span class="code-old">&lt;input id="newsletter-email-input" type="email" /&gt;</span>
+<span class="code-new">&lt;label for="newsletter-email-input"&gt;</span>
+<span class="code-new">  Email address for newsletter</span>
+<span class="code-new">&lt;/label&gt;</span>
+<span class="code-new">&lt;input id="newsletter-email-input" type="email" /&gt;</span>
+          </div>
+          <p style="font-size:11px;color:#888;margin-top:8px;">⏱ Estimated fix: 3 min · Risk: Low (minor layout shift)</p>
+        </div>
+      </div>
+    </div>
+    <div class="v-footer">
+      <span class="v-wcag">WCAG 1.3.1</span>
+      <span class="v-tag">cat.forms</span>
+      <span class="v-tag">axe-core 4.10</span>
+      <span class="v-page">📄 /contact · First seen: 2026-05-23</span>
+    </div>
+  </div>
+
+  <!-- Violation 3 -->
+  <div class="v-card">
+    <div class="v-header">
+      <span class="v-sev critical">Critical</span>
+      <div>
+        <div class="v-title">Elements must have sufficient color contrast <span class="v-new-badge">● NEW</span></div>
+        <div class="v-meta">Rule: <code>color-contrast</code> · WCAG <code>1.4.3</code> · 2 elements affected · Page: /pricing</div>
+      </div>
+    </div>
+    <div class="v-body">
+      <div>
+        <div class="v-section-label">What's wrong</div>
+        <p>The "Most Popular" badge text (#FFFFFF on #F5A623) has a contrast ratio of 2.8:1 — below the WCAG AA minimum of 4.5:1 for normal text. Users with low vision or color deficiency cannot read this label reliably.</p>
+        <div class="v-section-label" style="margin-top:12px;">Measured contrast</div>
+        <p><code>#FFFFFF</code> on <code>#F5A623</code> = <strong style="color:var(--critical);">2.8:1</strong> (required: 4.5:1)</p>
+      </div>
+      <div>
+        <div class="v-ai-box">
+          <div class="v-ai-label">✦ Claude Fix Suggestion</div>
+          <p style="font-size:12px;color:#555;line-height:1.6;">Darken the badge background to achieve sufficient contrast while keeping the amber brand color family.</p>
+          <div class="code-block">
+<span class="code-ctx">/* In pricing.css */</span>
+<span class="code-old">.popular-badge { background: #F5A623; color: #FFFFFF; }</span>
+<span class="code-new">.popular-badge { background: #B5720A; color: #FFFFFF; }</span>
+<span class="code-ctx">/* New ratio: #FFFFFF on #B5720A = 5.2:1 ✓ */</span>
+          </div>
+          <p style="font-size:11px;color:#888;margin-top:8px;">⏱ Estimated fix: 2 min · Risk: Low (color change only)</p>
+        </div>
+      </div>
+    </div>
+    <div class="v-footer">
+      <span class="v-wcag">WCAG 1.4.3</span>
+      <span class="v-tag">cat.color</span>
+      <span class="v-tag">contrast ratio 2.8:1</span>
+      <span class="v-page">📄 /pricing · First seen: 2026-05-23</span>
+    </div>
+  </div>
+
+  <!-- Violation 4 -->
+  <div class="v-card">
+    <div class="v-header">
+      <span class="v-sev serious">Serious</span>
+      <div>
+        <div class="v-title">Buttons must have discernible text <span class="v-new-badge">● NEW</span></div>
+        <div class="v-meta">Rule: <code>button-name</code> · WCAG <code>4.1.2</code> · 1 element affected · Page: /blog</div>
+      </div>
+    </div>
+    <div class="v-body">
+      <div>
+        <div class="v-section-label">What's wrong</div>
+        <p>The "Share" button on blog post pages contains only an SVG icon with no text or ARIA label. Screen readers announce this as "button" with no description of its function.</p>
+      </div>
+      <div>
+        <div class="v-ai-box">
+          <div class="v-ai-label">✦ Claude Fix Suggestion</div>
+          <div class="code-block">
+<span class="code-old">&lt;button&gt;&lt;svg&gt;...&lt;/svg&gt;&lt;/button&gt;</span>
+<span class="code-new">&lt;button aria-label="Share this article"&gt;</span>
+<span class="code-new">  &lt;svg aria-hidden="true"&gt;...&lt;/svg&gt;</span>
+<span class="code-new">&lt;/button&gt;</span>
+          </div>
+          <p style="font-size:11px;color:#888;margin-top:8px;">⏱ Estimated fix: 3 min · Risk: None</p>
+        </div>
+      </div>
+    </div>
+    <div class="v-footer">
+      <span class="v-wcag">WCAG 4.1.2</span>
+      <span class="v-tag">cat.name-role-value</span>
+      <span class="v-page">📄 /blog/* · First seen: 2026-05-23</span>
+    </div>
+  </div>
+
+  <!-- Violation 5 -->
+  <div class="v-card">
+    <div class="v-header">
+      <span class="v-sev serious">Serious</span>
+      <div>
+        <div class="v-title">Links must have discernible text <span class="v-new-badge">● NEW</span></div>
+        <div class="v-meta">Rule: <code>link-name</code> · WCAG <code>2.4.4</code> · 1 element affected · Page: /about</div>
+      </div>
+    </div>
+    <div class="v-body">
+      <div>
+        <div class="v-section-label">What's wrong</div>
+        <p>A "Read more" link on the /about page has no additional context — multiple identical "Read more" links cannot be distinguished by screen reader users navigating by link list.</p>
+      </div>
+      <div>
+        <div class="v-ai-box">
+          <div class="v-ai-label">✦ Claude Fix Suggestion</div>
+          <div class="code-block">
+<span class="code-old">&lt;a href="/team/sarah"&gt;Read more&lt;/a&gt;</span>
+<span class="code-new">&lt;a href="/team/sarah"&gt;</span>
+<span class="code-new">  Read more &lt;span class="sr-only"&gt;</span>
+<span class="code-new">    about Sarah Chen&lt;/span&gt;</span>
+<span class="code-new">&lt;/a&gt;</span>
+          </div>
+          <p style="font-size:11px;color:#888;margin-top:8px;">⏱ Estimated fix: 5 min · Risk: None</p>
+        </div>
+      </div>
+    </div>
+    <div class="v-footer">
+      <span class="v-wcag">WCAG 2.4.4</span>
+      <span class="v-tag">cat.name-role-value</span>
+      <span class="v-page">📄 /about · First seen: 2026-05-23</span>
+    </div>
+  </div>
+
+  <!-- Violation 6 -->
+  <div class="v-card">
+    <div class="v-header">
+      <span class="v-sev moderate">Moderate</span>
+      <div>
+        <div class="v-title">HTML element must have a valid lang attribute <span class="v-new-badge">● NEW</span></div>
+        <div class="v-meta">Rule: <code>html-lang-valid</code> · WCAG <code>3.1.1</code> · 1 element affected · Page: /fr</div>
+      </div>
+    </div>
+    <div class="v-body">
+      <div>
+        <div class="v-section-label">What's wrong</div>
+        <p>The new French language page (<code>/fr</code>) has <code>lang="fr-CA"</code> misspelled as <code>lang="fr_CA"</code> (underscore instead of hyphen). Screen readers may not switch to French pronunciation.</p>
+      </div>
+      <div>
+        <div class="v-ai-box">
+          <div class="v-ai-label">✦ Claude Fix Suggestion</div>
+          <div class="code-block">
+<span class="code-old">&lt;html lang="fr_CA"&gt;</span>
+<span class="code-new">&lt;html lang="fr-CA"&gt;</span>
+          </div>
+          <p style="font-size:11px;color:#888;margin-top:8px;">⏱ Estimated fix: 1 min · Risk: None</p>
+        </div>
+      </div>
+    </div>
+    <div class="v-footer">
+      <span class="v-wcag">WCAG 3.1.1</span>
+      <span class="v-tag">cat.language</span>
+      <span class="v-page">📄 /fr · First seen: 2026-05-23</span>
+    </div>
+  </div>
+
+  <!-- Violation 7 -->
+  <div class="v-card">
+    <div class="v-header">
+      <span class="v-sev minor">Minor</span>
+      <div>
+        <div class="v-title">Heading levels should only increase by one <span class="v-new-badge">● NEW</span></div>
+        <div class="v-meta">Rule: <code>heading-order</code> · WCAG <code>1.3.1</code> · 1 element affected · Page: /docs</div>
+      </div>
+    </div>
+    <div class="v-body">
+      <div>
+        <div class="v-section-label">What's wrong</div>
+        <p>The new documentation page jumps from an <code>&lt;h2&gt;</code> directly to an <code>&lt;h4&gt;</code>, skipping <code>&lt;h3&gt;</code>. This breaks the document outline for users navigating by heading, which is the most common screen reader navigation method.</p>
+      </div>
+      <div>
+        <div class="v-ai-box">
+          <div class="v-ai-label">✦ Claude Fix Suggestion</div>
+          <div class="code-block">
+<span class="code-old">&lt;h2&gt;Installation&lt;/h2&gt;</span>
+<span class="code-old">&lt;h4&gt;Requirements&lt;/h4&gt;</span>
+<span class="code-new">&lt;h2&gt;Installation&lt;/h2&gt;</span>
+<span class="code-new">&lt;h3&gt;Requirements&lt;/h3&gt;</span>
+          </div>
+          <p style="font-size:11px;color:#888;margin-top:8px;">⏱ Estimated fix: 2 min · Risk: Minor style adjustment</p>
+        </div>
+      </div>
+    </div>
+    <div class="v-footer">
+      <span class="v-wcag">WCAG 1.3.1</span>
+      <span class="v-tag">cat.semantics</span>
+      <span class="v-page">📄 /docs · First seen: 2026-05-23</span>
+    </div>
+  </div>
+
+  <!-- Pattern Analysis -->
+  <div class="section-title">📊 AI Pattern Analysis — Trend Data (Last 4 Weeks)</div>
+  <div style="background:#fff;border:1.5px solid var(--border);border-radius:16px;overflow:hidden;margin-bottom:20px;">
+    <table class="sum-table">
+      <thead>
+        <tr>
+          <th>WCAG Criterion</th>
+          <th>Rule</th>
+          <th>4-Week Count</th>
+          <th>Frequency</th>
+          <th>Trend</th>
+          <th>AI Priority</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>1.4.3</strong> — Contrast</td>
+          <td><code>color-contrast</code></td>
+          <td>11 violations</td>
+          <td><span class="bar-wrap"><span class="bar-fill" style="width:100%;"></span></span>High</td>
+          <td><span class="trend-up">↑ +3 this week</span></td>
+          <td><span style="background:var(--critical-bg);color:var(--critical);font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;">Fix now</span></td>
+        </tr>
+        <tr>
+          <td><strong>1.1.1</strong> — Alt text</td>
+          <td><code>image-alt</code></td>
+          <td>9 violations</td>
+          <td><span class="bar-wrap"><span class="bar-fill" style="width:82%;"></span></span>High</td>
+          <td><span class="trend-up">↑ +3 this week</span></td>
+          <td><span style="background:var(--critical-bg);color:var(--critical);font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;">Fix now</span></td>
+        </tr>
+        <tr>
+          <td><strong>4.1.2</strong> — Name/Role</td>
+          <td><code>button-name</code>, <code>label</code></td>
+          <td>7 violations</td>
+          <td><span class="bar-wrap"><span class="bar-fill" style="width:64%;"></span></span>Medium</td>
+          <td><span class="trend-up">↑ +2 this week</span></td>
+          <td><span style="background:var(--serious-bg);color:var(--serious);font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;">This sprint</span></td>
+        </tr>
+        <tr>
+          <td><strong>2.4.4</strong> — Link Purpose</td>
+          <td><code>link-name</code></td>
+          <td>4 violations</td>
+          <td><span class="bar-wrap"><span class="bar-fill" style="width:36%;background:var(--serious);"></span></span>Medium</td>
+          <td><span class="trend-dn">→ Stable</span></td>
+          <td><span style="background:var(--moderate-bg);color:var(--moderate);font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;">Backlog</span></td>
+        </tr>
+        <tr>
+          <td><strong>1.3.1</strong> — Structure</td>
+          <td><code>heading-order</code></td>
+          <td>3 violations</td>
+          <td><span class="bar-wrap"><span class="bar-fill" style="width:27%;background:var(--moderate);"></span></span>Low</td>
+          <td><span class="trend-dn">↓ −1 this week</span></td>
+          <td><span style="background:var(--moderate-bg);color:var(--moderate);font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;">Backlog</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Resolved -->
+  <div class="section-title">✅ Resolved Since Last Scan — 2 Violations Fixed</div>
+  <div style="background:#fff;border:1.5px solid var(--border);border-radius:16px;overflow:hidden;margin-bottom:20px;">
+    <table class="sum-table">
+      <thead>
+        <tr><th>Rule</th><th>Page</th><th>Resolved Date</th><th>Fixed by</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>aria-required-attr</code> — Missing ARIA attribute</td>
+          <td>/dashboard</td>
+          <td>2026-05-20</td>
+          <td><span class="trend-dn">✓ Developer commit abc123f</span></td>
+        </tr>
+        <tr>
+          <td><code>duplicate-id</code> — Duplicate element ID</td>
+          <td>/home</td>
+          <td>2026-05-19</td>
+          <td><span class="trend-dn">✓ Automated build fix</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Industry context -->
+  <div class="section-title">📰 This Week in Accessibility — Industry Context</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
+    <div style="background:#fff;border:1.5px solid var(--border);border-radius:14px;padding:16px 18px;">
+      <div style="font-family:'Syne',sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--minor);margin-bottom:6px;">WebAIM Blog</div>
+      <p style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px;">Color Contrast: Why It Still Fails at Scale</p>
+      <p style="font-size:12px;color:var(--text-2);line-height:1.55;">New analysis shows color contrast remains the #1 WCAG failure — affecting 81% of home pages. Your site has 11 contrast violations over 4 weeks, tracking with industry trends.</p>
+      <a href="https://webaim.org/blog/color-contrast-2025/" style="font-size:11px;color:var(--moderate);text-decoration:none;font-weight:600;margin-top:8px;display:inline-block;">Read article →</a>
+    </div>
+    <div style="background:#fff;border:1.5px solid var(--border);border-radius:14px;padding:16px 18px;">
+      <div style="font-family:'Syne',sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--minor);margin-bottom:6px;">A11y Project</div>
+      <p style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px;">Testing with Real Screen Readers in 2025</p>
+      <p style="font-size:12px;color:var(--text-2);line-height:1.55;">Guide to testing with NVDA, JAWS, and VoiceOver. Recommended for your team before the Q2 compliance review — manual testing catches 60% of issues that automated tools miss.</p>
+      <a href="https://www.a11yproject.com/posts/screen-reader-testing-2025/" style="font-size:11px;color:var(--moderate);text-decoration:none;font-weight:600;margin-top:8px;display:inline-block;">Read article →</a>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Footer ── -->
+<div class="report-footer">
+  <div class="rf-text">Generated by Accessibility Monitor · scan_20260523_001 · example.com · 2026-05-23 13:22:48 UTC</div>
+  <div class="rf-badge">Built with n8n + Claude claude-sonnet-4-6 + axe-core 4.10</div>
+</div>
+
+</body>
+</html>

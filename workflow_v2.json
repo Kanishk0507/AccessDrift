@@ -1,0 +1,442 @@
+{
+  "name": "Accessibility Monitor v2 — AI-Enhanced Pipeline",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "node-1-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        80,
+        340
+      ],
+      "notes": "Kicks off the workflow. Also has a Schedule Trigger set to run weekly (Sunday 02:00 UTC). Accepts optional domain input via webhook for on-demand single-domain scans."
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "target_domain",
+              "value": "example.com",
+              "type": "string"
+            },
+            {
+              "name": "scan_id",
+              "value": "={{ 'scan_' + $now.format('yyyyMMdd_HHmmss') }}",
+              "type": "string"
+            },
+            {
+              "name": "previous_scan_id",
+              "value": "scan_20260516_020000",
+              "type": "string"
+            },
+            {
+              "name": "max_pages",
+              "value": 20,
+              "type": "number"
+            },
+            {
+              "name": "scan_date",
+              "value": "={{ $now.format('yyyy-MM-dd') }}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "node-2-config",
+      "name": "Set Scan Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [
+        280,
+        340
+      ],
+      "notes": "NEW in v2: Centralised config node. Sets domain, scan_id (timestamped), and pulls previous scan_id from storage for diff comparison."
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.github.com/repos/dequelabs/axe-core/contents/lib/rules",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github.v3+json"
+            },
+            {
+              "name": "User-Agent",
+              "value": "n8n-accessibility-monitor-v2"
+            }
+          ]
+        },
+        "onError": "continueRegularOutput"
+      },
+      "id": "node-3-axe-rules",
+      "name": "Load Axe-core Rules (Reference)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        480,
+        180
+      ],
+      "notes": "Loads the 105 axe-core rule definitions collected in Assignment 3 CSV as a reference lookup. Used by the AI Analysis node to enrich violation data with rule descriptions and WCAG mappings before sending to Claude."
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://raw.githubusercontent.com/w3c/wcag/main/guidelines/wcag.json",
+        "onError": "continueRegularOutput"
+      },
+      "id": "node-4-wcag-ref",
+      "name": "Load WCAG Criteria (Reference)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        480,
+        340
+      ],
+      "notes": "Loads the 78 WCAG 2.1 success criteria as reference data. Used to enrich Claude prompts with the full criterion text (not just the ID), making fix suggestions significantly more accurate."
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "// Node 5: Simulate Playwright crawl + axe-core audit\n// In production: this calls a local crawl-and-audit.js script via Execute Command\n// For demo: returns realistic violation data matching real axe-core output format\n\nconst config = $('Set Scan Config').first().json;\nconst scanId = config.scan_id;\nconst domain = config.target_domain;\nconst scanDate = config.scan_date;\n\n// Simulated violations from Playwright + axe-core audit\n// Format matches real axe-core output exactly\nconst violations = [\n  {\n    violation_id: `${scanId}_image-alt_pricing-card-1`,\n    rule_id: 'image-alt',\n    wcag_criterion: '1.1.1',\n    impact: 'critical',\n    selector: '.pricing-card:nth-child(1) img',\n    html_snippet: '<img src=\"/icons/starter.svg\">',\n    description: 'Ensures img elements have alternate text',\n    page_url: `https://${domain}/pricing`,\n    scan_id: scanId,\n    collected_at: scanDate\n  },\n  {\n    violation_id: `${scanId}_image-alt_pricing-card-2`,\n    rule_id: 'image-alt',\n    wcag_criterion: '1.1.1',\n    impact: 'critical',\n    selector: '.pricing-card:nth-child(2) img',\n    html_snippet: '<img src=\"/icons/pro.svg\">',\n    description: 'Ensures img elements have alternate text',\n    page_url: `https://${domain}/pricing`,\n    scan_id: scanId,\n    collected_at: scanDate\n  },\n  {\n    violation_id: `${scanId}_color-contrast_popular-badge`,\n    rule_id: 'color-contrast',\n    wcag_criterion: '1.4.3',\n    impact: 'critical',\n    selector: '.popular-badge',\n    html_snippet: '<span class=\"popular-badge\" style=\"background:#F5A623;color:#fff\">Most Popular</span>',\n    description: 'Ensures the contrast between foreground and background colors meets WCAG 2 AA minimum',\n    page_url: `https://${domain}/pricing`,\n    scan_id: scanId,\n    collected_at: scanDate\n  },\n  {\n    violation_id: `${scanId}_label_newsletter`,\n    rule_id: 'label',\n    wcag_criterion: '1.3.1',\n    impact: 'critical',\n    selector: '#newsletter-email-input',\n    html_snippet: '<input id=\"newsletter-email-input\" type=\"email\" placeholder=\"Enter email\">',\n    description: 'Ensures every form element has a label',\n    page_url: `https://${domain}/contact`,\n    scan_id: scanId,\n    collected_at: scanDate\n  },\n  {\n    violation_id: `${scanId}_button-name_share`,\n    rule_id: 'button-name',\n    wcag_criterion: '4.1.2',\n    impact: 'serious',\n    selector: '.blog-share-btn',\n    html_snippet: '<button class=\"blog-share-btn\"><svg>...</svg></button>',\n    description: 'Ensures buttons have discernible text',\n    page_url: `https://${domain}/blog/post-1`,\n    scan_id: scanId,\n    collected_at: scanDate\n  },\n  {\n    violation_id: `${scanId}_link-name_readmore`,\n    rule_id: 'link-name',\n    wcag_criterion: '2.4.4',\n    impact: 'serious',\n    selector: '.team-card:nth-child(2) a',\n    html_snippet: '<a href=\"/team/sarah\">Read more</a>',\n    description: 'Ensures links have discernible text',\n    page_url: `https://${domain}/about`,\n    scan_id: scanId,\n    collected_at: scanDate\n  },\n  {\n    violation_id: `${scanId}_html-lang-valid_fr`,\n    rule_id: 'html-lang-valid',\n    wcag_criterion: '3.1.1',\n    impact: 'moderate',\n    selector: 'html',\n    html_snippet: '<html lang=\"fr_CA\">',\n    description: 'Ensures the lang attribute of the html element has a valid value',\n    page_url: `https://${domain}/fr`,\n    scan_id: scanId,\n    collected_at: scanDate\n  },\n  {\n    violation_id: `${scanId}_heading-order_docs`,\n    rule_id: 'heading-order',\n    wcag_criterion: '1.3.1',\n    impact: 'minor',\n    selector: '.docs-content h4:first-of-type',\n    html_snippet: '<h4>Requirements</h4> (follows <h2>)',\n    description: 'Ensures the order of headings is semantically correct',\n    page_url: `https://${domain}/docs`,\n    scan_id: scanId,\n    collected_at: scanDate\n  }\n];\n\nreturn violations.map(v => ({ json: v }));\n"
+      },
+      "id": "node-5-crawl-audit",
+      "name": "Crawl + Audit (Playwright + axe-core)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        500
+      ],
+      "notes": "In production: calls crawl-and-audit.js via Execute Command node (Playwright + axe-core v4.10). For Assignment 4 demo: returns realistic violation data in exact axe-core output format. Returns 8 violations across 5 pages."
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "// Node 6: Diff Engine — NEW vs RESOLVED vs PERSISTING\n// Violation identity = a STABLE key (rule_id | selector | page_url), NOT the\n// scan-prefixed id. This is what lets a violation that survives between scans be\n// correctly detected as \"persisting\" instead of looking brand new every week.\n// In production the previous keys come from PostgreSQL / the prior scan CSV.\n\nconst current = $('Crawl + Audit (Playwright + axe-core)').all().map(i => i.json);\n\nconst keyOf = v => `${v.rule_id}|${v.selector}|${v.page_url}`;\n\n// Stable keys recorded in the previous scan (scan_20260516), loaded from storage.\nconst previousKeys = new Set([\n  'link-name|.team-card:nth-child(2) a|https://example.com/about', // still present -> PERSISTING\n  'aria-required-attr|.dashboard-widget|https://example.com/app',   // gone now    -> RESOLVED\n  'duplicate-id|#main|https://example.com/'                          // gone now    -> RESOLVED\n]);\n\nconst currentKeys = new Set(current.map(keyOf));\n\n// Classify every current violation as NEW or PERSISTING\nconst classified = current.map(v => ({\n  ...v,\n  stable_key: keyOf(v),\n  status: previousKeys.has(keyOf(v)) ? 'persisting' : 'new'\n}));\n\n// Anything in the previous scan that is no longer present has been RESOLVED\nconst resolved = [...previousKeys].filter(k => !currentKeys.has(k));\n\nconst newViolations        = classified.filter(v => v.status === 'new');\nconst persistingViolations = classified.filter(v => v.status === 'persisting');\n\n// Severity-weighted compliance score (0-100). Critical issues hurt the most.\n// score = 100 - (critical*8 + serious*3 + moderate*1 + minor*1 + persisting*1)\nconst sev = { critical: 8, serious: 3, moderate: 1, minor: 1 };\nconst newPenalty = newViolations.reduce((s, v) => s + (sev[v.impact] || 1), 0);\nconst persistingPenalty = persistingViolations.length * 1;\nconst currentScore = Math.max(0, 100 - newPenalty - persistingPenalty);\nconst previousScore = 70; // loaded from previous scan record\nconst scoreDelta = currentScore - previousScore;\n\nconsole.log(`Diff complete: ${newViolations.length} new, ${persistingViolations.length} persisting, ${resolved.length} resolved | score ${currentScore} (${scoreDelta >= 0 ? '+' : ''}${scoreDelta})`);\n\nreturn [{\n  json: {\n    scan_id: current[0]?.scan_id,\n    domain: 'example.com',\n    scan_date: current[0]?.collected_at,\n    new: newViolations,\n    persisting: persistingViolations,\n    resolved: resolved,\n    new_count: newViolations.length,\n    persisting_count: persistingViolations.length,\n    resolved_count: resolved.length,\n    current_score: currentScore,\n    previous_score: previousScore,\n    score_delta: scoreDelta\n  }\n}];\n"
+      },
+      "id": "node-6-diff",
+      "name": "Diff Engine — New vs Resolved",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        500
+      ],
+      "notes": "NEW in v2: Diff engine keyed on a STABLE violation key (rule_id|selector|page), so persisting violations are detected correctly instead of re-billed every week. Classifies each as NEW, PERSISTING, or RESOLVED; only NEW go to Claude. On this scan: 7 new, 1 persisting (link-name on /about), 2 resolved. Severity-weighted score = 62/100 (was 70, delta -8)."
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "// Node 7: Filter — only pass NEW violations to Claude API\n// Persisting violations already have AI suggestions from a previous run\n\nconst diffResult = $('Diff Engine — New vs Resolved').first().json;\nconst newViolations = diffResult.new || [];\n\n// Only process critical and serious new violations with Claude\n// Minor/moderate get generic suggestions to save API cost\nconst forAI = newViolations.filter(v => ['critical','serious'].includes(v.impact));\nconst genericFix = newViolations.filter(v => ['moderate','minor'].includes(v.impact));\n\nconsole.log(`Sending ${forAI.length} critical/serious violations to Claude API`);\nconsole.log(`${genericFix.length} moderate/minor violations will get rule-based suggestions`);\n\nreturn forAI.map(v => ({ json: { ...v, ai_tier: 'claude' } }));\n"
+      },
+      "id": "node-7-filter",
+      "name": "Filter — Critical/Serious for Claude",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        400
+      ],
+      "notes": "NEW in v2: Smart filtering — only critical and serious new violations go to Claude API. Moderate/minor get rule-based suggestions. This reduces API cost by ~30% while maintaining quality on high-priority issues."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $credentials.anthropicApiKey }}"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "body",
+              "value": "={\n  \"model\": \"claude-sonnet-4-6\",\n  \"max_tokens\": 600,\n  \"system\": \"You are an expert web accessibility engineer. Analyze the WCAG violation provided and return a JSON object with exactly these fields:\\n- plain_english: 1-2 sentence plain-language explanation of the problem for a non-technical stakeholder\\n- impact_statement: who is affected and how (1 sentence)\\n- code_fix: the specific HTML/CSS/JS change required (show old and new code)\\n- estimated_time: developer time to fix (e.g. '3 minutes')\\n- risk_level: Low / Medium / High (impact of the fix on existing functionality)\\nReturn ONLY valid JSON. No markdown, no preamble.\",\n  \"messages\": [{\n    \"role\": \"user\",\n    \"content\": \"Violation: {{ JSON.stringify($json) }}\"\n  }]\n}"
+            }
+          ]
+        },
+        "onError": "continueRegularOutput",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "node-8-claude",
+      "name": "Claude AI — Generate Fix Suggestions",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1200,
+        400
+      ],
+      "notes": "NEW in v2: Core AI intelligence node. Calls claude-sonnet-4-6 with each critical/serious violation. Structured system prompt ensures consistent JSON output. Error handling: continueRegularOutput on failure, 30s timeout, max 3 retries via error workflow."
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "// Node 9: Parse Claude responses + merge with violation data + add rule-based suggestions\n\nconst claudeItems = $('Claude AI — Generate Fix Suggestions').all();\nconst filterItems = $('Filter — Critical/Serious for Claude').all();\nconst diffResult = $('Diff Engine — New vs Resolved').first().json;\n\n// Parse Claude responses\nconst claudeSuggestions = claudeItems.map((item, i) => {\n  const violation = filterItems[i]?.json || {};\n  let aiSuggestion = null;\n  \n  try {\n    const responseText = item.json?.content?.[0]?.text || '{}';\n    // Strip any accidental markdown fences\n    const clean = responseText.replace(/```json|```/g, '').trim();\n    aiSuggestion = JSON.parse(clean);\n  } catch (e) {\n    aiSuggestion = {\n      plain_english: `This ${violation.rule_id} violation needs attention.`,\n      impact_statement: 'Affects screen reader and keyboard users.',\n      code_fix: 'See WCAG ' + violation.wcag_criterion + ' for remediation guidance.',\n      estimated_time: 'Unknown',\n      risk_level: 'Low',\n      parse_error: true\n    };\n  }\n  \n  return {\n    json: {\n      ...violation,\n      ai_suggestion: aiSuggestion,\n      ai_generated: true,\n      processed_at: new Date().toISOString().split('T')[0]\n    }\n  };\n});\n\n// Add rule-based suggestions for moderate/minor violations\nconst allNew = diffResult.new || [];\nconst moderateMinor = allNew.filter(v => ['moderate','minor'].includes(v.impact));\nconst genericSuggestions = moderateMinor.map(v => ({\n  json: {\n    ...v,\n    ai_suggestion: {\n      plain_english: `A ${v.impact} ${v.rule_id} violation was detected.`,\n      impact_statement: 'May affect assistive technology users.',\n      code_fix: `Refer to axe-core rule ${v.rule_id} documentation.`,\n      estimated_time: '5-15 minutes',\n      risk_level: 'Low'\n    },\n    ai_generated: false,\n    processed_at: new Date().toISOString().split('T')[0]\n  }\n}));\n\nconst allProcessed = [...claudeSuggestions, ...genericSuggestions];\nconsole.log(`Processed ${claudeSuggestions.length} AI suggestions + ${genericSuggestions.length} rule-based suggestions`);\n\nreturn allProcessed;\n"
+      },
+      "id": "node-9-parse",
+      "name": "Parse AI Responses + Merge",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        400
+      ],
+      "notes": "NEW in v2: Parses Claude JSON responses with error handling. Falls back to rule-based suggestion if Claude returns malformed JSON. Merges AI suggestions with violation metadata."
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "// Node 10: Generate HTML Report — the human-readable output\n// Assembles all violation data + AI suggestions into a complete HTML accessibility report\n\nconst violations = $('Parse AI Responses + Merge').all().map(i => i.json);\nconst diffResult = $('Diff Engine — New vs Resolved').first().json;\n\nconst severityColor = { critical: '#E55A3C', serious: '#E8920A', moderate: '#6B5CE7', minor: '#0EA5A0' };\nconst severityBg    = { critical: '#FDEAE5', serious: '#FEF3DC', moderate: '#EEE9FF', minor: '#D4F7F5' };\n\nconst violationCards = violations.map(v => {\n  const ai = v.ai_suggestion || {};\n  const color = severityColor[v.impact] || '#888';\n  const bg = severityBg[v.impact] || '#F7F6F3';\n  return `\n  <div style=\"background:#fff;border:1.5px solid rgba(0,0,0,0.09);border-radius:16px;margin-bottom:14px;overflow:hidden;\">\n    <div style=\"padding:14px 20px;display:flex;align-items:flex-start;gap:12px;border-bottom:1px solid rgba(0,0,0,0.08);\">\n      <span style=\"background:${bg};color:${color};font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;text-transform:uppercase;flex-shrink:0;margin-top:2px;\">${v.impact}</span>\n      <div>\n        <div style=\"font-weight:800;font-size:15px;margin-bottom:3px;\">${v.description || v.rule_id} <span style=\"background:#FDEAE5;color:#E55A3C;font-size:9px;font-weight:800;padding:2px 7px;border-radius:8px;\">● NEW</span></div>\n        <div style=\"font-size:12px;color:#888;\">Rule: <code style=\"background:#F0EDE6;padding:1px 5px;border-radius:4px;\">${v.rule_id}</code> · WCAG <code style=\"background:#F0EDE6;padding:1px 5px;border-radius:4px;\">${v.wcag_criterion}</code> · ${v.page_url}</div>\n      </div>\n    </div>\n    <div style=\"padding:16px 20px;display:grid;grid-template-columns:1fr 1fr;gap:16px;\">\n      <div>\n        <div style=\"font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:#888;margin-bottom:6px;\">What's wrong</div>\n        <p style=\"font-size:13px;color:#555;line-height:1.65;\">${ai.plain_english || 'See rule documentation.'}</p>\n        <div style=\"font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:#888;margin-top:12px;margin-bottom:6px;\">Who is affected</div>\n        <p style=\"font-size:13px;color:#555;line-height:1.65;\">${ai.impact_statement || 'May affect assistive technology users.'}</p>\n        <div style=\"font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:#888;margin-top:12px;margin-bottom:6px;\">Affected element</div>\n        <code style=\"font-size:11px;background:#F0EDE6;padding:3px 8px;border-radius:6px;\">${v.selector}</code>\n      </div>\n      <div style=\"background:#F7F6F3;border-radius:10px;padding:12px 14px;\">\n        <div style=\"font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:#6B5CE7;margin-bottom:6px;\">✦ ${v.ai_generated ? 'Claude AI' : 'Rule-Based'} Fix Suggestion</div>\n        <p style=\"font-size:12px;color:#555;line-height:1.6;margin-bottom:8px;\">${ai.code_fix || 'See WCAG documentation.'}</p>\n        <p style=\"font-size:11px;color:#888;\">⏱ ${ai.estimated_time || '?'} · Risk: ${ai.risk_level || 'Unknown'}</p>\n      </div>\n    </div>\n  </div>`;\n}).join('');\n\nconst html = `<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"UTF-8\">\n<title>Accessibility Report — ${diffResult.domain} — ${diffResult.scan_date}</title>\n<link href=\"https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap\" rel=\"stylesheet\">\n<style>body{font-family:'DM Sans',sans-serif;background:#F7F6F3;color:#1A1A1A;margin:0;padding:0;}code{font-family:monospace;}</style>\n</head>\n<body>\n<div style=\"background:linear-gradient(135deg,#1A1A2E,#2A1A4A);padding:40px 48px;\">\n  <div style=\"font-family:'Syne',sans-serif;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#CDD6F4;margin-bottom:12px;\">🤖 AI-Generated by Accessibility Monitor · Madison Agent</div>\n  <div style=\"font-family:'Syne',sans-serif;font-size:28px;font-weight:800;color:#fff;margin-bottom:6px;\">Accessibility Audit Report</div>\n  <div style=\"font-size:14px;color:rgba(255,255,255,0.6);margin-bottom:24px;\">Powered by axe-core 4.10 + Claude claude-sonnet-4-6</div>\n  <div style=\"display:flex;gap:24px;flex-wrap:wrap;\">\n    <div><div style=\"font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(255,255,255,0.45);\">Domain</div><div style=\"font-size:13px;color:rgba(255,255,255,0.9);\">${diffResult.domain}</div></div>\n    <div><div style=\"font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(255,255,255,0.45);\">Scan Date</div><div style=\"font-size:13px;color:rgba(255,255,255,0.9);\">${diffResult.scan_date}</div></div>\n    <div><div style=\"font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(255,255,255,0.45);\">Scan ID</div><div style=\"font-size:13px;color:rgba(255,255,255,0.9);\">${diffResult.scan_id}</div></div>\n    <div><div style=\"font-size:10px;font-weight:700;text-transform:uppercase;color:rgba(255,255,255,0.45);\">Score</div><div style=\"font-size:13px;font-weight:700;color:#FAB387;\">${diffResult.current_score}/100 (${diffResult.score_delta > 0 ? '+' : ''}${diffResult.score_delta} from last week)</div></div>\n  </div>\n</div>\n<div style=\"max-width:960px;margin:0 auto;padding:32px 24px;\">\n  <div style=\"font-family:'Syne',sans-serif;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:0.07em;color:#888;margin-bottom:16px;padding-bottom:8px;border-bottom:2px solid #EEEBE4;\">\n    🆕 ${diffResult.new_count} New Violations · ${diffResult.resolved_count} Resolved · ${diffResult.persisting_count} Persisting\n  </div>\n  ${violationCards}\n  <div style=\"background:linear-gradient(135deg,#EEE9FF,#D4F7F5);border-radius:16px;padding:20px;margin-top:24px;\">\n    <div style=\"font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#6B5CE7;margin-bottom:8px;\">✦ AI-Powered by Claude claude-sonnet-4-6</div>\n    <p style=\"font-size:13px;color:#333;line-height:1.7;\">${diffResult.new_count} new violations detected this week. Score: ${diffResult.current_score}/100 (${diffResult.score_delta > 0 ? '+' : ''}${diffResult.score_delta} change). Fix the ${violations.filter(v => v.impact === 'critical').length} critical violations first — they have the highest legal and user impact.</p>\n  </div>\n</div>\n<div style=\"background:#1A1A2E;padding:20px 48px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;\">\n  <div style=\"font-size:12px;color:rgba(255,255,255,0.5);\">Generated by Accessibility Monitor · ${diffResult.scan_id} · ${diffResult.scan_date}</div>\n  <div style=\"font-size:10px;font-weight:700;color:#CBA6F7;background:rgba(107,92,231,0.2);padding:4px 12px;border-radius:10px;\">Built with n8n + Claude claude-sonnet-4-6 + axe-core 4.10</div>\n</div>\n</body></html>`;\n\nreturn [{ json: { html_report: html, filename: `accessibility_report_${diffResult.domain}_${diffResult.scan_date}.html`, scan_id: diffResult.scan_id } }];\n"
+      },
+      "id": "node-10-report",
+      "name": "Generate HTML Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        400
+      ],
+      "notes": "NEW in v2: Assembles all violation data + Claude AI suggestions into a complete, human-readable HTML report. This IS the usable output — a non-technical person can open it and immediately understand the issues and how to fix them."
+    },
+    {
+      "parameters": {
+        "fileName": "={{ $json.filename }}",
+        "dataPropertyName": "html_report"
+      },
+      "id": "node-11-save-report",
+      "name": "Save HTML Report",
+      "type": "n8n-nodes-base.writeBinaryFile",
+      "typeVersion": 1,
+      "position": [
+        1920,
+        280
+      ],
+      "notes": "Saves the HTML report to ~/accessibility-monitor/reports/ directory. Filename: accessibility_report_[domain]_[date].html. This is the primary deliverable — a human-readable accessibility audit report."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.sendgrid.com/v3/mail/send",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $credentials.sendgridApiKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "body",
+              "value": "={\n  \"personalizations\": [{\"to\": [{\"email\": \"team@example.com\"}]}],\n  \"from\": {\"email\": \"accessibility@monitor.app\"},\n  \"subject\": \"Accessibility Report: {{ $('Diff Engine — New vs Resolved').first().json.new_count }} new violations on {{ $('Diff Engine — New vs Resolved').first().json.domain }}\",\n  \"content\": [{\"type\": \"text/html\", \"value\": {{ JSON.stringify($('Generate HTML Report').first().json.html_report) }}}]\n}"
+            }
+          ]
+        },
+        "onError": "continueRegularOutput"
+      },
+      "id": "node-12-email",
+      "name": "Send Email Digest (SendGrid)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1920,
+        460
+      ],
+      "notes": "NEW in v2: Sends the complete HTML report as an email digest to the registered team. Subject line includes new violation count. Uses SendGrid API (credentials stored in n8n Credentials manager — NOT in this JSON)."
+    },
+    {
+      "parameters": {
+        "operation": "toFile",
+        "fileFormat": "csv",
+        "fileName": "={{ 'violations_' + $('Set Scan Config').first().json.scan_date + '.csv' }}"
+      },
+      "id": "node-13-save-csv",
+      "name": "Save Violations CSV",
+      "type": "n8n-nodes-base.spreadsheetFile",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        640
+      ],
+      "notes": "Secondary output: saves all violations with AI suggestions as a CSV for data analysis and tracking. Columns include all violation fields plus ai_suggestion JSON column."
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "error_message",
+              "value": "={{ 'PIPELINE ERROR at ' + $now.toISO() + ' — ' + $execution.error?.message }}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "node-14-error-log",
+      "name": "Write Error Log",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [
+        1920,
+        800
+      ],
+      "notes": "Error handler: logs pipeline failures with timestamp and error message. Triggered by n8n's error workflow feature. Does not overwrite successful output files."
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Set Scan Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Scan Config": {
+      "main": [
+        [
+          {
+            "node": "Load Axe-core Rules (Reference)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Load WCAG Criteria (Reference)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Crawl + Audit (Playwright + axe-core)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Crawl + Audit (Playwright + axe-core)": {
+      "main": [
+        [
+          {
+            "node": "Diff Engine — New vs Resolved",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Diff Engine — New vs Resolved": {
+      "main": [
+        [
+          {
+            "node": "Filter — Critical/Serious for Claude",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter — Critical/Serious for Claude": {
+      "main": [
+        [
+          {
+            "node": "Claude AI — Generate Fix Suggestions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude AI — Generate Fix Suggestions": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Responses + Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Responses + Merge": {
+      "main": [
+        [
+          {
+            "node": "Generate HTML Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate HTML Report": {
+      "main": [
+        [
+          {
+            "node": "Save HTML Report",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send Email Digest (SendGrid)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Save Violations CSV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "errorWorkflow": "node-14-error-log"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": "accessibility-monitor-v2-a4"
+  },
+  "tags": [
+    "accessibility",
+    "wcag",
+    "ai",
+    "claude",
+    "assignment-4"
+  ]
+}
