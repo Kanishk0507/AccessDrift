@@ -974,10 +974,15 @@ $('scanBtn').addEventListener('click',()=>{
   const btn = $('scanBtn'); btn.textContent='Scanning…'; btn.disabled=true;
   $('out').innerHTML = `<div class="empty"><div class="spinner"></div><h3>Auditing the live ${maxPages>1?`site (up to ${maxPages} pages)`:'page'}…</h3><p>Launching headless Chrome and running axe-core against <strong>${url}</strong>${maxPages>1?', crawling same-origin links':''}. This can take ${maxPages>1?'30–90s':'10–30s'}.</p></div>`;
   document.getElementById('results-title').scrollIntoView({behavior:'smooth',block:'start'});
-  (ON_FILE_PROTOCOL ? Promise.reject(new Error('file-protocol')) :
-    fetch('/scan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url,maxPages})})
-      .then(r=>{ if(!r.ok) throw new Error('backend-unavailable'); return r.json(); }))
-    .then(handleResult)
+  (ON_FILE_PROTOCOL ? Promise.reject(new Error('unreachable')) :
+    fetch('/scan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url,maxPages})}))
+    .then(r => r.ok ? r.json().then(handleResult) : r.json().catch(()=>({})).then(body => {
+        // A server answered but the scan itself failed — show the real reason,
+        // don't paper over it with the "no backend at all" demo.
+        if(body && body.error) return showError(body.error);
+        if([502,503,504].includes(r.status)) return showError('The AccessDrift backend just woke up from idle (the free tier spins it down after inactivity) — give it a few seconds and hit Scan again.');
+        return showError(`Scan failed (HTTP ${r.status}). Try again in a moment.`);
+      }))
     .catch(()=>handleResult(demoScanResult(url)))
     .finally(()=>{ btn.textContent='Scan'; btn.disabled=false; });
 });
@@ -1111,10 +1116,15 @@ $('fixBtn').addEventListener('click',()=>{
   if(!html){ $('fixInput').focus(); return; }
   const btn=$('fixBtn'); btn.disabled=true; btn.textContent='Fixing…';
   $('fixOut').innerHTML='<div class="try-lbl">Scanning, applying fixes, and re-scanning…</div>';
-  (ON_FILE_PROTOCOL ? Promise.reject(new Error('file-protocol')) :
-    fetch('/fix',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({html})})
-      .then(r=>{ if(!r.ok) throw new Error('backend-unavailable'); return r.json(); }))
-    .then(o=>{ if(o.error){ $('fixOut').innerHTML='<div class="err"><span>⚠</span><span>'+esc(o.error)+'</span></div>'; } else { renderFix(o); $('fixAi').textContent = o.aiAvailable?'':'Tip: set ANTHROPIC_API_KEY for Claude-written labels'; } })
+  (ON_FILE_PROTOCOL ? Promise.reject(new Error('unreachable')) :
+    fetch('/fix',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({html})}))
+    .then(r => r.ok ? r.json().then(o=>{ renderFix(o); $('fixAi').textContent = o.aiAvailable?'':'Tip: set ANTHROPIC_API_KEY for Claude-written labels'; })
+      : r.json().catch(()=>({})).then(body => {
+          const msg = (body && body.error) ? body.error
+            : [502,503,504].includes(r.status) ? 'The AccessDrift backend just woke up from idle — give it a few seconds and try again.'
+            : `Fix failed (HTTP ${r.status}). Try again in a moment.`;
+          $('fixOut').innerHTML = '<div class="err"><span>⚠</span><span>'+esc(msg)+'</span></div>';
+        }))
     .catch(()=>{ renderFix(demoFixResult(html)); $('fixAi').innerHTML='<span style="color:var(--brand-ink)">Demo preview — connect the live backend for real Claude-written fixes.</span>'; })
     .finally(()=>{ btn.disabled=false; btn.textContent='🔧 Fix & re-scan'; });
 });
