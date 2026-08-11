@@ -1,7 +1,5 @@
 # AccessDrift
 
-**Live demo:** [accessdrift.onrender.com](https://accessdrift.onrender.com/)
-
 A full-stack web-accessibility monitoring tool. Paste a URL → it launches a real
 headless Chrome, runs **axe-core** against the live page(s) across the full
 **WCAG 2.0 / 2.1 / 2.2 A & AA** ruleset, and produces an audit report, an email
