@@ -21,7 +21,7 @@
     --ash:#C9D2DA;         /* Ash — borders, dividers */
 
     --bg:var(--mist); --surface:#FFFFFF; --surface-2:#EEF2F5;
-    --muted:var(--slate); --faint:#6C7A88; --line:var(--ash); --line-2:#E3E8ED;
+    --muted:var(--slate); --faint:#5E6E7E; --line:var(--ash); --line-2:#E3E8ED;
     /* legacy --brand* tokens remapped onto the brand: pervasive brand = Ink; soft = ink tint */
     --brand:#0E1B2C; --brand-ink:#0E1B2C; --brand-soft:#E7EEF5;
     --good:var(--clear); --good-soft:#E3F6EC; --bad:#D92D20; --bad-soft:#FDECEA;
@@ -237,7 +237,7 @@
   .hist .det{font-size:11.5px;color:var(--muted);margin-top:1px;}
   .hist .src{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;padding:2px 7px;border-radius:999px;}
   .hist .src.live{background:var(--brand-soft);color:var(--brand-ink);}
-  .hist .src.manual{background:var(--line-2);color:var(--muted);}
+  .hist .src.manual{background:var(--line-2);color:#566573;} /* --muted (5.48:1 on white) drops to ~4.44:1 on this bg — fails AA */
   .hist .del,.watch .del{background:none;border:none;color:var(--faint);cursor:pointer;font-size:14px;min-width:24px;min-height:24px;display:grid;place-items:center;padding:2px;border-radius:6px;flex-shrink:0;}
   .hist .del:hover,.watch .del:hover{background:var(--bad-soft);color:var(--bad);}
 
@@ -354,7 +354,7 @@
   .offer h3{font-size:18px;font-weight:700;margin:6px 0 8px;}
   .offer p{font-size:13.5px;color:var(--slate);line-height:1.6;margin:0;}
   .offer .price{margin-top:14px;font-size:12.5px;font-weight:700;color:var(--ink);}
-  .offer .price .free{color:var(--clear);}
+  .offer .price .free{color:#107E4B;} /* darker than --clear (#17B26A) — that shade is 2.75:1 on white, fails WCAG AA */
 
   /* About */
   .about-lead{max-width:60ch;margin:0 auto 30px;text-align:center;color:var(--slate);font-size:16px;line-height:1.65;}
@@ -499,7 +499,7 @@
           <div class="verb">03 · Fix in plain English</div>
           <h3>Get the fix, not a citation</h3>
           <p>Every issue comes with who it hurts and the exact code change — written in plain English. Low-confidence cases fall back to a human-verified rulebook, so the advice is never made up.</p>
-          <div class="price">Agency · custom</div>
+          <div class="price">Agency · $99/mo</div>
         </div>
       </article>
 

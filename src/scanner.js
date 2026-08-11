@@ -209,7 +209,7 @@ async function sameOriginLinks(page, origin) {
 async function scanUrl(rawUrl, { timeoutMs = 30000, maxPages = 1, shots = 10 } = {}) {
   const startUrl = normalizeUrl(rawUrl);
   const origin = new URL(startUrl).origin;
-  const domain = new URL(startUrl).hostname;
+  const domain = new URL(startUrl).host;
   const now = new Date();
   const scanDate = now.toISOString().slice(0, 10);
   const scanId = 'scan_' + now.toISOString().replace(/[-:T]/g, '').slice(0, 14) + '_live';

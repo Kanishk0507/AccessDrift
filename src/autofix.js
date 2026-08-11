@@ -40,11 +40,11 @@ function findChrome() {
   return hit;
 }
 
-// Same severity weights + score formula as pipeline.js, so before/after numbers
-// line up with a normal scan.
+// Same severity weights + score formula as server.js's live absolute score, so
+// before/after numbers line up with a normal /scan.
 const SEV = { critical: 8, serious: 3, moderate: 1, minor: 1 };
 const scoreOf = violations =>
-  Math.max(0, 100 - violations.reduce((s, v) => s + (SEV[v.impact] || 1), 0));
+  Math.round(100 * Math.exp(-violations.reduce((s, v) => s + (SEV[v.impact] || 1), 0) / 100));
 
 const AUTO_FIXABLE = new Set([
   'html-has-lang', 'html-lang-valid', 'document-title', 'image-alt',
@@ -77,7 +77,13 @@ async function runAxe(page) {
 function collectTargets(violations) {
   let n = 0;
   const targets = [];
-  const tag = el => { const id = String(n++); el.setAttribute('data-afix', id); return id; };
+  // Idempotent: html-has-lang and document-title both tag <html> — reuse its id
+  // instead of minting a new one, or the second tag() call overwrites the first
+  // and the earlier target's [data-afix] selector stops matching anything.
+  const tag = el => {
+    if (el.hasAttribute('data-afix')) return el.getAttribute('data-afix');
+    const id = String(n++); el.setAttribute('data-afix', id); return id;
+  };
   for (const v of violations) {
     if (['html-has-lang', 'html-lang-valid', 'document-title'].includes(v.rule_id)) {
       targets.push({ id: tag(document.documentElement), rule: v.rule_id });
@@ -109,6 +115,11 @@ function collectTargets(violations) {
 /* ---- Phase 2 (browser): apply fixes, using AI labels when provided ---- */
 function applyResolved(targets) {
   const log = [];
+  // html-has-lang and document-title can share one id (both target <html>) — only
+  // strip data-afix once every target for that id has been processed, or the
+  // first removal breaks the querySelector lookup for the second.
+  const remaining = {};
+  for (const t of targets) remaining[t.id] = (remaining[t.id] || 0) + 1;
   const fallback = t => {
     if (t.href) {
       if (t.href === '/' || /(^|\/)(index|home)(\.html?)?$/i.test(t.href)) return 'Home';
@@ -158,7 +169,8 @@ function applyResolved(targets) {
       case 'frame-title':
         if (!el.getAttribute('title')) { el.setAttribute('title', (ai && t.label) || el.getAttribute('name') || 'Embedded content'); note = `added title="${el.getAttribute('title')}"`; } break;
     }
-    el.removeAttribute('data-afix');
+    remaining[t.id]--;
+    if (remaining[t.id] === 0) el.removeAttribute('data-afix');
     if (note) log.push({ rule: t.rule, selector: t.snippet ? t.snippet.slice(0, 80) : t.rule, change: note, ai: ai && !!t.label });
   }
   return log;

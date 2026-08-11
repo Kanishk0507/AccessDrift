@@ -234,7 +234,13 @@ async function buildArtifacts(current, previousKeys, previousScore, opts = {}) {
       // Severity-weighted ABSOLUTE score, comparable run-to-run (a re-scan of the
       // same broken page yields the same score). new/persisting/resolved still come
       // from the real diff vs the previous stored scan — true time-series tracking.
-      const absScore = Math.max(0, 100 - current.reduce((s, v) => s + (SEV[v.impact] || 1), 0));
+      // Exponential decay rather than a linear subtraction: a linear "100 - penalty"
+      // floors at 0 once penalty passes 100 (~34 serious violations), so a page with
+      // 40 issues and one with 400 both show 0/100 — indistinguishable. Decay keeps
+      // every violation count distinguishable while still cratering toward 0 for
+      // genuinely broken pages.
+      const penalty = current.reduce((s, v) => s + (SEV[v.impact] || 1), 0);
+      const absScore = Math.round(100 * Math.exp(-penalty / 100));
       d.current_score = absScore;
       d.previous_score = (previousScore == null) ? absScore : previousScore;
       d.score_delta = absScore - d.previous_score;
